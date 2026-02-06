@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { loadGoogleMaps } from '@/utils/googleMaps';
 import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyles';
@@ -18,11 +18,13 @@ interface MapProps {
 export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, onCloseAnalysisCard }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const initMap = useCallback(async () => {
     if (!mapRef.current) return;
 
     try {
+      setMapError(null);
       await loadGoogleMaps();
 
       const map = new google.maps.Map(mapRef.current, {
@@ -64,6 +66,8 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       onMapReady(map);
     } catch (error) {
       console.error('Failed to initialize map:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load Google Maps. Check console for details.';
+      setMapError(errorMessage);
     }
   }, [onMapReady]);
 
@@ -79,6 +83,24 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       className="w-full h-full relative"
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
+
+      {/* Error message overlay */}
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0f]/95 p-8">
+          <div className="max-w-md bg-[#12121a] border border-red-500/30 rounded-xl p-6 text-center">
+            <div className="text-4xl mb-4">🗺️</div>
+            <h2 className="text-xl font-bold text-red-400 mb-3">Map Loading Error</h2>
+            <p className="text-sm text-gray-300 mb-4">{mapError}</p>
+            <div className="text-xs text-gray-500 space-y-1 text-left bg-[#0a0a0f] p-3 rounded">
+              <p><strong>Common fixes:</strong></p>
+              <p>1. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to Vercel env vars</p>
+              <p>2. Enable Maps JavaScript API in Google Cloud Console</p>
+              <p>3. Add your domain to API key restrictions</p>
+              <p>4. Check browser console (F12) for specific error</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search results count indicator */}
       {searchResults.length > 0 && (
