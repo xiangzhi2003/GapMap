@@ -71,6 +71,28 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, []);
 
+  const clearPreviousMapState = useCallback((actionType: string) => {
+    // Clear based on action type context
+    if (actionType === 'heatmap' || actionType === 'greenZone' || actionType === 'analysisCard') {
+      // Starting business analysis - clear search markers
+      clearMarkers();
+      // Don't clear heatmap here - let showHeatmap handle it for continuity
+    }
+
+    if (actionType === 'search' || actionType === 'multiSearch') {
+      // New search - clear everything
+      clearMarkers();
+      clearHeatmap();
+      setAnalysisCard(null);
+      setIsAnalysisCardVisible(false);
+    }
+
+    if (actionType === 'directions') {
+      // Clear old directions but preserve markers
+      clearDirections();
+    }
+  }, [clearMarkers, clearHeatmap, clearDirections]);
+
   const toggleAnalysisCard = useCallback(() => {
     setIsAnalysisCardVisible((prev) => !prev);
   }, []);
@@ -243,7 +265,6 @@ export function useMapActions(): UseMapActionsResult {
 
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
     setIsSearching(true);
-    clearMarkers();
 
     try {
       // Add to recent searches
@@ -426,6 +447,9 @@ export function useMapActions(): UseMapActionsResult {
   }, [clearDirections]);
 
   const executeAction = useCallback(async (action: MapAction, map: google.maps.Map): Promise<void> => {
+    // Clear previous state intelligently based on action type
+    clearPreviousMapState(action.type);
+
     switch (action.type) {
       case 'search': {
         const data = action.data as SearchActionData;
@@ -474,7 +498,6 @@ export function useMapActions(): UseMapActionsResult {
       }
       case 'multiSearch': {
         const data = action.data as MultiSearchActionData;
-        clearMarkers();
 
         const allResults: PlaceResult[] = [];
 
@@ -579,7 +602,7 @@ export function useMapActions(): UseMapActionsResult {
         break;
       }
     }
-  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails]);
+  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails, clearPreviousMapState]);
 
   return {
     searchResults,

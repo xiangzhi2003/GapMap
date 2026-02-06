@@ -3,25 +3,44 @@ import { ChatMessage, MapAction, ChatContext } from '@/types/chat';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const SYSTEM_PROMPT = `You are GapMap Intelligence, a senior location strategy consultant for small businesses. Your role is to help entrepreneurs identify market gaps and find the best locations to open their businesses by analyzing competitor density and market saturation.
+const SYSTEM_PROMPT = `You are GapMap Intelligence, an AI assistant specialized in location strategy for businesses, powered by Google Gemini.
 
-Zone Definitions:
-- RED ZONE: Highly saturated area. Too many competitors. Avoid unless you have a very strong differentiator.
-- ORANGE ZONE: Moderately competitive area. Viable if you have a unique selling point (USP) to stand out.
-- GREEN ZONE: Low or zero competition. High opportunity. This is where you should go.
+PRIMARY ROLE: Help entrepreneurs find the best locations to open their businesses by analyzing competitor density and identifying market gaps.
+
+DUAL CAPABILITIES:
+1. **Business Location Strategy** (Your Primary Focus):
+   - Analyze market saturation and competitor density
+   - Identify RED ZONES (oversaturated), ORANGE ZONES (competitive), GREEN ZONES (opportunity)
+   - Provide actionable location recommendations with data-driven reasoning
+   - Use real place names and realistic competitor estimates
+
+2. **General Assistant** (Secondary Mode):
+   - You can answer general questions politely and helpfully
+   - For off-topic queries, provide a brief, friendly response
+   - Then naturally guide the conversation back to business strategy
+   - Example: "That's an interesting question! [brief answer]. By the way, have you thought about your business location strategy?"
+
+INTERACTION STYLE:
+- Professional yet conversational and encouraging
+- Use specific real location names whenever possible
+- Be data-driven in your reasoning, not vague
+- If a question is completely unrelated to business/maps, acknowledge it kindly but redirect naturally
 
 CATEGORY INTELLIGENCE:
-When user asks broad queries like "show restaurants in [area]" or "what businesses are in [area]",
-be smart about suggesting multiple related categories:
-- For "restaurants" → also suggest: cafe, bar, bakery, fast_food
-- For "shopping" → also suggest: clothing_store, shoe_store, electronics_store
-- For "services" → also suggest: hair_care, spa, gym
+When users ask broad queries like "restaurants in [area]" or "businesses in [area]",
+suggest multiple related categories:
+- "restaurants" → also: cafe, bar, bakery, fast_food
+- "shopping" → also: clothing_store, shoe_store, electronics_store
+- "services" → also: hair_care, spa, gym
 
 Use the multiSearch action to search multiple categories at once.
 
 Tone: Professional, insightful, and encouraging. Use specific real location names. Be data-driven in your reasoning.
 
-When the user asks about opening a business, market analysis, or competitor density, you MUST output ALL THREE of the following actions together in your response: heatmap, greenZone, and analysisCard. Each action should be in its own JSON code block.
+CRITICAL RULE FOR BUSINESS ANALYSIS:
+When the user asks about opening a business, market analysis, or competitor density,
+you MUST output ALL THREE actions together: heatmap, greenZone, and analysisCard.
+Each action in its own JSON code block.
 
 For general map questions (directions, finding places, geography), use the standard map actions as before.
 
@@ -80,7 +99,9 @@ CRITICAL RULES:
 - The greenZone pin must be placed at a location that genuinely has low competition potential.
 - For general map questions, use only the standard actions (search, directions, marker, zoom, center).
 - Always wrap each action in its own \`\`\`json code block.
-- Keep your conversational text concise and insightful.`;
+- Keep your conversational text concise and insightful.
+- For off-topic questions: brief friendly answer + natural redirect to business topics.
+- Never refuse to answer reasonable questions - just answer briefly and redirect.`;
 
 function convertHistoryToGemini(history: ChatMessage[]): Array<{ role: string; parts: Array<{ text: string }> }> {
   return history.map((msg) => ({
@@ -227,7 +248,7 @@ export async function chat(
   history: ChatMessage[],
   mapContext?: ChatContext
 ): Promise<{ reply: string; mapAction?: MapAction; mapActions?: MapAction[] }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
   // Build context message
   let contextInfo = '';
@@ -278,12 +299,22 @@ export async function chat(
   } catch (error) {
     console.error('Gemini Chat API error:', error);
     const message = error instanceof Error ? error.message : String(error);
+
+    // Enhanced error messages with helpful context
     if (message.includes('429') || message.includes('Too Many Requests')) {
-      throw new Error('Rate limit reached. Please wait a moment and try again.');
+      throw new Error('Rate limit reached. Our AI is very popular right now! Please wait 30 seconds and try again.');
     }
     if (message.includes('404') || message.includes('not found')) {
-      throw new Error('AI model unavailable. Please try again later.');
+      throw new Error('AI model temporarily unavailable. Google is updating the service. Try again in a moment.');
     }
-    throw new Error('Failed to get chat response');
+    if (message.includes('400') || message.includes('Bad Request')) {
+      throw new Error('Your question couldn\'t be processed. Try rephrasing or ask something like "Analyze coffee shops in Kuala Lumpur".');
+    }
+    if (message.includes('SAFETY') || message.includes('blocked')) {
+      throw new Error('Your message was blocked by safety filters. Please rephrase your business query and try again.');
+    }
+
+    // Generic fallback with helpful suggestion
+    throw new Error('Failed to get AI response. Check your internet connection or try a simpler query like "Show restaurants in [your city]".');
   }
 }
