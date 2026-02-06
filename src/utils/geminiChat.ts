@@ -257,7 +257,7 @@ export async function chat(
   mapContext?: ChatContext
 ): Promise<{ reply: string; mapAction?: MapAction; mapActions?: MapAction[] }> {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3-flash',
+    model: 'gemini-1.5-flash-latest',
     generationConfig: {
       temperature: 0.7,
       topP: 0.95,
