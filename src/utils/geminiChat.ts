@@ -237,10 +237,18 @@ function parseActionObject(obj: Record<string, unknown>): MapAction | undefined 
 
 function cleanResponseText(text: string): string {
   // Remove JSON code blocks from the visible response
-  return text
-    .replace(/```json\s*\n?\s*\{[\s\S]*?\}\s*\n?\s*```/g, '')
-    .replace(/\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard|multiSearch)"[\s\S]*?\}/g, '')
-    .trim();
+  let cleaned = text;
+
+  // Remove all ```json...``` blocks (handles multiple blocks and various whitespace)
+  cleaned = cleaned.replace(/```json[\s\S]*?```/g, '');
+
+  // Remove any remaining raw JSON action objects
+  cleaned = cleaned.replace(/\{"action"\s*:\s*"[^"]+"\s*,[\s\S]*?\}/g, '');
+
+  // Remove extra blank lines and trim
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+
+  return cleaned;
 }
 
 export async function chat(
@@ -291,8 +299,11 @@ export async function chat(
     // Clean the response text (remove JSON blocks)
     const cleanedReply = cleanResponseText(text);
 
+    // If the entire response was just JSON blocks (no text), provide a friendly default
+    const finalReply = cleanedReply || (mapActions.length > 0 ? '✓ Executing action...' : text);
+
     return {
-      reply: cleanedReply || text,
+      reply: finalReply,
       mapAction: mapActions[0],
       mapActions: mapActions.length > 0 ? mapActions : undefined,
     };
