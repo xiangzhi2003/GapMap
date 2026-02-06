@@ -9,12 +9,13 @@ interface UseMapActionsResult {
   directionsResult: google.maps.DirectionsResult | null;
   recentSearches: string[];
   analysisCard: AnalysisCardData | null;
+  isAnalysisCardVisible: boolean;
   executeAction: (action: MapAction, map: google.maps.Map) => Promise<void>;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   clearSearchResults: () => void;
   clearDirections: () => void;
-  clearAnalysisCard: () => void;
+  toggleAnalysisCard: () => void;
   addMarker: (lat: number, lng: number, title: string, map: google.maps.Map) => google.maps.Marker;
   clearMarkers: () => void;
 }
@@ -25,6 +26,7 @@ export function useMapActions(): UseMapActionsResult {
   const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [analysisCard, setAnalysisCard] = useState<AnalysisCardData | null>(null);
+  const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
@@ -55,8 +57,8 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, []);
 
-  const clearAnalysisCard = useCallback(() => {
-    setAnalysisCard(null);
+  const toggleAnalysisCard = useCallback(() => {
+    setIsAnalysisCardVisible((prev) => !prev);
   }, []);
 
   const showHeatmap = useCallback((points: { lat: number; lng: number; weight: number; label?: string }[], map: google.maps.Map) => {
@@ -353,6 +355,7 @@ export function useMapActions(): UseMapActionsResult {
       case 'analysisCard': {
         const data = action.data as AnalysisCardData;
         setAnalysisCard(data);
+        setIsAnalysisCardVisible(true);
         break;
       }
     }
@@ -364,12 +367,13 @@ export function useMapActions(): UseMapActionsResult {
     directionsResult,
     recentSearches,
     analysisCard,
+    isAnalysisCardVisible,
     executeAction,
     searchPlaces,
     getDirections,
     clearSearchResults,
     clearDirections,
-    clearAnalysisCard,
+    toggleAnalysisCard,
     addMarker,
     clearMarkers,
   };

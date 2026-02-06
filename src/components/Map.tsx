@@ -12,10 +12,11 @@ interface MapProps {
   searchResults?: PlaceResult[];
   directionsResult?: google.maps.DirectionsResult | null;
   analysisCard?: AnalysisCardData | null;
-  onCloseAnalysisCard?: () => void;
+  isAnalysisCardVisible?: boolean;
+  onToggleAnalysisCard?: () => void;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, onCloseAnalysisCard }: MapProps) {
+export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, isAnalysisCardVisible, onToggleAnalysisCard }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -117,8 +118,27 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       )}
 
       {/* Analysis Card */}
-      {analysisCard && onCloseAnalysisCard && (
-        <AnalysisCard data={analysisCard} onClose={onCloseAnalysisCard} />
+      {analysisCard && isAnalysisCardVisible && onToggleAnalysisCard && (
+        <AnalysisCard data={analysisCard} onClose={onToggleAnalysisCard} />
+      )}
+
+      {/* Toggle Analysis Card Button - shows when there's data but card is hidden */}
+      {analysisCard && !isAnalysisCardVisible && onToggleAnalysisCard && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          onClick={onToggleAnalysisCard}
+          className="absolute bottom-6 left-6 z-10 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all hover:scale-105"
+          title="Show Market Analysis"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="9" y1="21" x2="9" y2="9"></line>
+          </svg>
+          Show Analysis
+        </motion.button>
       )}
 
       {/* Directions summary */}

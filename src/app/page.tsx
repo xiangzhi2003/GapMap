@@ -17,11 +17,12 @@ export default function Home() {
     directionsResult,
     recentSearches,
     analysisCard,
+    isAnalysisCardVisible,
     executeAction,
     searchPlaces,
     clearSearchResults,
     clearDirections,
-    clearAnalysisCard,
+    toggleAnalysisCard,
   } = useMapActions();
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
@@ -78,7 +79,8 @@ export default function Home() {
           searchResults={searchResults}
           directionsResult={directionsResult}
           analysisCard={analysisCard}
-          onCloseAnalysisCard={clearAnalysisCard}
+          isAnalysisCardVisible={isAnalysisCardVisible}
+          onToggleAnalysisCard={toggleAnalysisCard}
         />
 
         {/* Overlay gradient for visual effect */}
