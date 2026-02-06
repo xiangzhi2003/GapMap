@@ -256,7 +256,15 @@ export async function chat(
   history: ChatMessage[],
   mapContext?: ChatContext
 ): Promise<{ reply: string; mapAction?: MapAction; mapActions?: MapAction[] }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-3-flash',
+    generationConfig: {
+      temperature: 0.7,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 8192,
+    },
+  });
 
   // Build context message
   let contextInfo = '';
