@@ -18,11 +18,13 @@ export default function Home() {
     recentSearches,
     analysisCard,
     isAnalysisCardVisible,
+    hasMoreResults,
     executeAction,
     searchPlaces,
     clearSearchResults,
     clearDirections,
     toggleAnalysisCard,
+    loadMoreResults,
   } = useMapActions();
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
@@ -62,6 +64,12 @@ export default function Home() {
     clearDirections();
   }, [clearSearchResults, clearDirections]);
 
+  const handleLoadMore = useCallback(async () => {
+    if (map) {
+      await loadMoreResults(map);
+    }
+  }, [map, loadMoreResults]);
+
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-[#0a0a0f]">
       <ChatSidebar
@@ -81,6 +89,8 @@ export default function Home() {
           analysisCard={analysisCard}
           isAnalysisCardVisible={isAnalysisCardVisible}
           onToggleAnalysisCard={toggleAnalysisCard}
+          hasMoreResults={hasMoreResults}
+          onLoadMore={handleLoadMore}
         />
 
         {/* Overlay gradient for visual effect */}

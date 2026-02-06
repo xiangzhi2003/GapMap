@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { MapAction, SearchActionData, DirectionsActionData, MarkerActionData, ZoomActionData, CenterActionData, HeatmapActionData, GreenZoneActionData, AnalysisCardData, PlaceResult } from '@/types/chat';
+import { MapAction, SearchActionData, DirectionsActionData, MarkerActionData, ZoomActionData, CenterActionData, HeatmapActionData, GreenZoneActionData, AnalysisCardData, PlaceResult, MultiSearchActionData } from '@/types/chat';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { renderRichInfoWindow } from '@/utils/infoWindowRenderer';
+import { getCategoryColor, CATEGORY_COLORS } from '@/utils/markerIcons';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
@@ -10,6 +13,8 @@ interface UseMapActionsResult {
   recentSearches: string[];
   analysisCard: AnalysisCardData | null;
   isAnalysisCardVisible: boolean;
+  nextPageToken: string | null;
+  hasMoreResults: boolean;
   executeAction: (action: MapAction, map: google.maps.Map) => Promise<void>;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
@@ -18,6 +23,7 @@ interface UseMapActionsResult {
   toggleAnalysisCard: () => void;
   addMarker: (lat: number, lng: number, title: string, map: google.maps.Map) => google.maps.Marker;
   clearMarkers: () => void;
+  loadMoreResults: (map: google.maps.Map) => Promise<void>;
 }
 
 export function useMapActions(): UseMapActionsResult {
@@ -27,12 +33,20 @@ export function useMapActions(): UseMapActionsResult {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [analysisCard, setAnalysisCard] = useState<AnalysisCardData | null>(null);
   const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
   const greenZoneMarkerRef = useRef<google.maps.Marker | null>(null);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const paginationRef = useRef<google.maps.places.PlaceSearchPagination | null>(null);
 
   const clearMarkers = useCallback(() => {
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current = null;
+    }
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
   }, []);
@@ -138,6 +152,63 @@ export function useMapActions(): UseMapActionsResult {
     }, 600);
   }, []);
 
+  const getPlaceDetails = useCallback(async (
+    placeId: string,
+    map: google.maps.Map
+  ): Promise<PlaceResult | null> => {
+    // Check cache first
+    if (placeDetailsCache[placeId]) {
+      return placeDetailsCache[placeId];
+    }
+
+    const service = new google.maps.places.PlacesService(map);
+
+    return new Promise((resolve) => {
+      service.getDetails(
+        {
+          placeId,
+          fields: [
+            'name', 'formatted_address', 'geometry', 'rating',
+            'user_ratings_total', 'photos', 'types', 'opening_hours',
+            'website', 'formatted_phone_number', 'price_level',
+            'reviews', 'business_status', 'url', 'place_id'
+          ]
+        },
+        (place, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+            const details: PlaceResult = {
+              placeId: place.place_id!,
+              name: place.name || 'Unknown',
+              address: place.formatted_address || '',
+              location: {
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+              },
+              rating: place.rating,
+              userRatingsTotal: place.user_ratings_total,
+              photos: place.photos,
+              types: place.types,
+              openNow: place.opening_hours?.isOpen?.(),
+              website: place.website,
+              phoneNumber: place.formatted_phone_number,
+              openingHours: place.opening_hours,
+              priceLevel: place.price_level,
+              reviews: place.reviews?.slice(0, 3), // First 3 reviews only
+              businessStatus: place.business_status,
+              url: place.url,
+            };
+
+            // Cache it
+            setPlaceDetailsCache(prev => ({ ...prev, [placeId]: details }));
+            resolve(details);
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }, [placeDetailsCache]);
+
   const addMarker = useCallback((lat: number, lng: number, title: string, map: google.maps.Map): google.maps.Marker => {
     const marker = new google.maps.Marker({
       position: { lat, lng },
@@ -190,9 +261,10 @@ export function useMapActions(): UseMapActionsResult {
         radius: 50000, // 50km radius
       };
 
-      service.textSearch(request, (results, status) => {
+      service.textSearch(request, (results, status, pagination) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const places: PlaceResult[] = results.slice(0, 10).map((place) => ({
+          // REMOVED 10-result limit - now shows all results
+          const places: PlaceResult[] = results.map((place) => ({
             placeId: place.place_id || '',
             name: place.name || 'Unknown',
             address: place.formatted_address || '',
@@ -208,9 +280,20 @@ export function useMapActions(): UseMapActionsResult {
 
           setSearchResults(places);
 
+          // Store pagination token
+          if (pagination?.hasNextPage) {
+            paginationRef.current = pagination;
+            setNextPageToken('available');
+          } else {
+            paginationRef.current = null;
+            setNextPageToken(null);
+          }
+
           // Add markers for results
           const bounds = new google.maps.LatLngBounds();
           places.forEach((place, index) => {
+            const markerColor = getCategoryColor(place.types);
+
             const marker = new google.maps.Marker({
               position: place.location,
               map,
@@ -225,7 +308,7 @@ export function useMapActions(): UseMapActionsResult {
               icon: {
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 14,
-                fillColor: '#00f0ff',
+                fillColor: markerColor,
                 fillOpacity: 0.9,
                 strokeColor: '#ffffff',
                 strokeWeight: 2,
@@ -233,23 +316,34 @@ export function useMapActions(): UseMapActionsResult {
             });
 
             const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div style="background: #12121a; color: white; padding: 12px; border-radius: 8px; font-family: system-ui; min-width: 200px;">
-                  <h3 style="margin: 0 0 4px; color: #00f0ff; font-size: 14px;">${place.name}</h3>
-                  <p style="margin: 0 0 4px; font-size: 12px; color: #aaa;">${place.address}</p>
-                  ${place.rating ? `<p style="margin: 0; font-size: 12px;">⭐ ${place.rating.toFixed(1)} (${place.userRatingsTotal || 0} reviews)</p>` : ''}
-                  ${place.openNow !== undefined ? `<p style="margin: 4px 0 0; font-size: 11px; color: ${place.openNow ? '#22c55e' : '#ef4444'};">${place.openNow ? '🟢 Open now' : '🔴 Closed'}</p>` : ''}
-                </div>
-              `,
+              content: '<div style="padding: 20px; color: white;">Loading details...</div>',
+              maxWidth: 400,
             });
 
-            marker.addListener('click', () => {
+            marker.addListener('click', async () => {
               infoWindow.open(map, marker);
+
+              // Fetch full details
+              const details = await getPlaceDetails(place.placeId, map);
+
+              if (details) {
+                infoWindow.setContent(renderRichInfoWindow(details));
+              } else {
+                infoWindow.setContent('<div style="padding: 20px; color: white;">Failed to load details</div>');
+              }
             });
 
             markersRef.current.push(marker);
             bounds.extend(place.location);
           });
+
+          // Create marker clusterer
+          if (markersRef.current.length > 0) {
+            clustererRef.current = new MarkerClusterer({
+              map,
+              markers: markersRef.current,
+            });
+          }
 
           // Fit map to show all results
           if (places.length > 0) {
@@ -263,6 +357,8 @@ export function useMapActions(): UseMapActionsResult {
           }
         } else {
           setSearchResults([]);
+          setNextPageToken(null);
+          paginationRef.current = null;
         }
         setIsSearching(false);
       });
@@ -271,7 +367,25 @@ export function useMapActions(): UseMapActionsResult {
       setSearchResults([]);
       setIsSearching(false);
     }
-  }, [clearMarkers]);
+  }, [clearMarkers, getPlaceDetails]);
+
+  const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
+    if (!paginationRef.current || !paginationRef.current.hasNextPage) return;
+
+    setIsSearching(true);
+
+    try {
+      paginationRef.current.nextPage();
+
+      // The nextPage() call will trigger another callback with more results
+      // We need to wait a bit for the API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Load more error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
 
   const getDirections = useCallback(async (
     origin: string,
@@ -358,8 +472,114 @@ export function useMapActions(): UseMapActionsResult {
         setIsAnalysisCardVisible(true);
         break;
       }
+      case 'multiSearch': {
+        const data = action.data as MultiSearchActionData;
+        clearMarkers();
+
+        const allResults: PlaceResult[] = [];
+
+        for (const type of data.types) {
+          const service = new google.maps.places.PlacesService(map);
+          const request = {
+            query: `${data.query} ${type}`,
+            location: data.location ? undefined : map.getCenter(),
+            radius: 50000,
+          };
+
+          await new Promise<void>((resolve) => {
+            service.textSearch(request, (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                const places = results.slice(0, 20).map(place => ({
+                  placeId: place.place_id || '',
+                  name: place.name || 'Unknown',
+                  address: place.formatted_address || '',
+                  location: {
+                    lat: place.geometry?.location?.lat() || 0,
+                    lng: place.geometry?.location?.lng() || 0,
+                  },
+                  rating: place.rating,
+                  userRatingsTotal: place.user_ratings_total,
+                  types: place.types,
+                  openNow: place.opening_hours?.isOpen?.(),
+                  category: type,  // Tag with category
+                }));
+                allResults.push(...places);
+              }
+              resolve();
+            });
+          });
+        }
+
+        setSearchResults(allResults);
+
+        // Create markers with category-based colors
+        const bounds = new google.maps.LatLngBounds();
+        allResults.forEach((place, index) => {
+          const markerColor = place.category ? (CATEGORY_COLORS[place.category] || CATEGORY_COLORS.default) : getCategoryColor(place.types);
+
+          const marker = new google.maps.Marker({
+            position: place.location,
+            map,
+            title: place.name,
+            animation: google.maps.Animation.DROP,
+            label: {
+              text: String(index + 1),
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 'bold',
+            },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 14,
+              fillColor: markerColor,
+              fillOpacity: 0.9,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            },
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: '<div style="padding: 20px; color: white;">Loading details...</div>',
+            maxWidth: 400,
+          });
+
+          marker.addListener('click', async () => {
+            infoWindow.open(map, marker);
+
+            const details = await getPlaceDetails(place.placeId, map);
+
+            if (details) {
+              infoWindow.setContent(renderRichInfoWindow(details));
+            } else {
+              infoWindow.setContent('<div style="padding: 20px; color: white;">Failed to load details</div>');
+            }
+          });
+
+          markersRef.current.push(marker);
+          bounds.extend(place.location);
+        });
+
+        // Create marker clusterer
+        if (markersRef.current.length > 0) {
+          clustererRef.current = new MarkerClusterer({
+            map,
+            markers: markersRef.current,
+          });
+        }
+
+        // Fit map to show all results
+        if (allResults.length > 0) {
+          map.fitBounds(bounds);
+          const listener = google.maps.event.addListener(map, 'idle', () => {
+            const zoom = map.getZoom();
+            if (zoom && zoom > 15) map.setZoom(15);
+            google.maps.event.removeListener(listener);
+          });
+        }
+        break;
+      }
     }
-  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone]);
+  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails]);
 
   return {
     searchResults,
@@ -368,6 +588,8 @@ export function useMapActions(): UseMapActionsResult {
     recentSearches,
     analysisCard,
     isAnalysisCardVisible,
+    nextPageToken,
+    hasMoreResults: nextPageToken !== null,
     executeAction,
     searchPlaces,
     getDirections,
@@ -376,5 +598,6 @@ export function useMapActions(): UseMapActionsResult {
     toggleAnalysisCard,
     addMarker,
     clearMarkers,
+    loadMoreResults,
   };
 }

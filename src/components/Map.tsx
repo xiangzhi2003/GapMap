@@ -14,9 +14,11 @@ interface MapProps {
   analysisCard?: AnalysisCardData | null;
   isAnalysisCardVisible?: boolean;
   onToggleAnalysisCard?: () => void;
+  hasMoreResults?: boolean;
+  onLoadMore?: () => void;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, isAnalysisCardVisible, onToggleAnalysisCard }: MapProps) {
+export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, isAnalysisCardVisible, onToggleAnalysisCard, hasMoreResults, onLoadMore }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -115,6 +117,23 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
             {searchResults.length} places found
           </p>
         </motion.div>
+      )}
+
+      {/* Load More Results Button */}
+      {hasMoreResults && onLoadMore && (
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          onClick={onLoadMore}
+          className="absolute bottom-16 right-4 bg-cyan-500 hover:bg-cyan-400 text-white font-medium px-4 py-2 rounded-lg shadow-lg transition-all hover:scale-105 flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          Load More Results
+        </motion.button>
       )}
 
       {/* Analysis Card */}

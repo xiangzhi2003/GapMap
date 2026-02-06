@@ -7,8 +7,8 @@ export interface ChatMessage {
 }
 
 export interface MapAction {
-  type: 'search' | 'directions' | 'marker' | 'zoom' | 'center' | 'heatmap' | 'greenZone' | 'analysisCard';
-  data: SearchActionData | DirectionsActionData | MarkerActionData | ZoomActionData | CenterActionData | HeatmapActionData | GreenZoneActionData | AnalysisCardData;
+  type: 'search' | 'directions' | 'marker' | 'zoom' | 'center' | 'heatmap' | 'greenZone' | 'analysisCard' | 'multiSearch';
+  data: SearchActionData | DirectionsActionData | MarkerActionData | ZoomActionData | CenterActionData | HeatmapActionData | GreenZoneActionData | AnalysisCardData | MultiSearchActionData;
 }
 
 export interface SearchActionData {
@@ -63,6 +63,12 @@ export interface AnalysisCardData {
   recommendation: string;
 }
 
+export interface MultiSearchActionData {
+  query: string;
+  location?: string;
+  types: string[];  // e.g., ['restaurant', 'cafe', 'bar']
+}
+
 export interface ChatContext {
   center?: { lat: number; lng: number };
   zoom?: number;
@@ -88,8 +94,16 @@ export interface PlaceResult {
   location: { lat: number; lng: number };
   rating?: number;
   userRatingsTotal?: number;
-  photos?: string[];
+  photos?: google.maps.places.PlacePhoto[];
   types?: string[];
   openNow?: boolean;
   priceLevel?: number;
+  // NEW FIELDS for rich InfoWindows:
+  website?: string;
+  phoneNumber?: string;
+  openingHours?: google.maps.places.PlaceOpeningHours;
+  reviews?: google.maps.places.PlaceReview[];
+  businessStatus?: string;
+  url?: string;  // Google Maps link
+  category?: string;  // For multi-category searches
 }

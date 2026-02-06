@@ -10,6 +10,15 @@ Zone Definitions:
 - ORANGE ZONE: Moderately competitive area. Viable if you have a unique selling point (USP) to stand out.
 - GREEN ZONE: Low or zero competition. High opportunity. This is where you should go.
 
+CATEGORY INTELLIGENCE:
+When user asks broad queries like "show restaurants in [area]" or "what businesses are in [area]",
+be smart about suggesting multiple related categories:
+- For "restaurants" → also suggest: cafe, bar, bakery, fast_food
+- For "shopping" → also suggest: clothing_store, shoe_store, electronics_store
+- For "services" → also suggest: hair_care, spa, gym
+
+Use the multiSearch action to search multiple categories at once.
+
 Tone: Professional, insightful, and encouraging. Use specific real location names. Be data-driven in your reasoning.
 
 When the user asks about opening a business, market analysis, or competitor density, you MUST output ALL THREE of the following actions together in your response: heatmap, greenZone, and analysisCard. Each action should be in its own JSON code block.
@@ -21,6 +30,11 @@ Available actions:
 1. Search for places:
 \`\`\`json
 {"action": "search", "query": "coffee shops", "location": "Tokyo"}
+\`\`\`
+
+1b. Multi-category search (for showing different business types):
+\`\`\`json
+{"action": "multiSearch", "query": "food", "location": "Kuala Lumpur", "types": ["restaurant", "cafe", "bar", "bakery"]}
 \`\`\`
 
 2. Get directions:
@@ -96,7 +110,7 @@ function extractMapActions(text: string): MapAction[] {
 
   if (actions.length === 0) {
     // Fallback: try to find raw JSON that looks like an action
-    const rawJsonRegex = /\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard)"[\s\S]*?\}/g;
+    const rawJsonRegex = /\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard|multiSearch)"[\s\S]*?\}/g;
     const rawMatches = [...text.matchAll(rawJsonRegex)];
     for (const match of rawMatches) {
       try {
@@ -186,6 +200,15 @@ function parseActionObject(obj: Record<string, unknown>): MapAction | undefined 
           recommendation: obj.recommendation as string,
         },
       };
+    case 'multiSearch':
+      return {
+        type: 'multiSearch',
+        data: {
+          query: obj.query as string,
+          location: obj.location as string | undefined,
+          types: obj.types as string[],
+        },
+      };
     default:
       return undefined;
   }
@@ -195,7 +218,7 @@ function cleanResponseText(text: string): string {
   // Remove JSON code blocks from the visible response
   return text
     .replace(/```json\s*\n?\s*\{[\s\S]*?\}\s*\n?\s*```/g, '')
-    .replace(/\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard)"[\s\S]*?\}/g, '')
+    .replace(/\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard|multiSearch)"[\s\S]*?\}/g, '')
     .trim();
 }
 
