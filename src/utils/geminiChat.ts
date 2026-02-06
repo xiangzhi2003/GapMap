@@ -227,7 +227,7 @@ export async function chat(
   history: ChatMessage[],
   mapContext?: ChatContext
 ): Promise<{ reply: string; mapAction?: MapAction; mapActions?: MapAction[] }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
   // Build context message
   let contextInfo = '';
