@@ -4,6 +4,8 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   mapAction?: MapAction;
+  mapActions?: MapAction[];
+  analysisCardData?: AnalysisCardData;
 }
 
 export interface MapAction {

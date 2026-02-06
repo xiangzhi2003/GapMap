@@ -45,12 +45,22 @@ export function useChat(): UseChatResult {
         throw new Error(data.error || 'Failed to get response');
       }
 
+      // Extract analysis card data if present
+      const analysisCardAction = data.mapActions?.find(
+        (action: MapAction) => action.type === 'analysisCard'
+      );
+      const analysisCardData = analysisCardAction
+        ? (analysisCardAction.data as import('@/types/chat').AnalysisCardData)
+        : undefined;
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: data.reply,
         timestamp: new Date(),
         mapAction: data.mapAction,
+        mapActions: data.mapActions,
+        analysisCardData,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
