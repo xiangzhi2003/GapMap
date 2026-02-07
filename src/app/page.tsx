@@ -81,13 +81,13 @@ export default function Home() {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
-      {/* Sidebar Toggle Button - positioned to not overlap Street View panel */}
+      {/* Sidebar Toggle Button - dark theme, positioned to right of Street View panel */}
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="absolute top-3 left-[200px] z-[100] w-10 h-10 bg-white hover:bg-gray-100 rounded-sm shadow-md flex items-center justify-center transition-all"
+          className="absolute top-3 left-[200px] z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all"
         >
-          <Menu size={20} className="text-gray-700" />
+          <Menu size={20} className="text-white" />
         </button>
       )}
 
