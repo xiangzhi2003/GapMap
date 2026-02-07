@@ -267,6 +267,17 @@ export function useMapActions(): UseMapActionsResult {
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
     setIsSearching(true);
 
+    // Always clear previous search results when starting a new search
+    if (!isPaginatingRef.current) {
+      clearMarkers();
+      clearHeatmap();
+      // Clear green zone marker too
+      if (greenZoneMarkerRef.current) {
+        greenZoneMarkerRef.current.setMap(null);
+        greenZoneMarkerRef.current = null;
+      }
+    }
+
     try {
       // Add to recent searches
       setRecentSearches((prev) => {
@@ -399,7 +410,7 @@ export function useMapActions(): UseMapActionsResult {
       setSearchResults([]);
       setIsSearching(false);
     }
-  }, [clearMarkers, getPlaceDetails]);
+  }, [clearMarkers, clearHeatmap, getPlaceDetails]);
 
   const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
     if (!paginationRef.current || !paginationRef.current.hasNextPage) return;
