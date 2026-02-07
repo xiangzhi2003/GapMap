@@ -3,32 +3,28 @@ import { ChatMessage, ChatContext } from '@/types/chat';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const SYSTEM_PROMPT = `You are GapMap Intelligence, an AI assistant specialized in location strategy for businesses.
+const SYSTEM_INSTRUCTION = `You are GapMap Intelligence, an AI location strategy expert.
+Your goal is to control a map interface by outputting structured commands.
 
-You must respond with ONLY valid JSON in this exact format:
+INPUT CONTEXT:
+The user will ask questions about locations, businesses, or just chat.
+
+OUTPUT FORMAT:
+You must respond with a JSON object using this schema:
 {
   "intent": "search" | "chat",
-  "query": "full search query here" | null,
-  "reply": "conversational text to show user"
+  "query": "refined search query for Google Maps" | null,
+  "reply": "conversational response to the user"
 }
 
 RULES:
-- intent: Use "search" if user wants to find/search places. Use "chat" for everything else (greetings, thanks, questions, etc.)
-- query: Full search query for Google Places API (e.g., "gyms in Puchong"). Set to null if intent is "chat".
-- reply: Conversational message to display in chat UI
+- If user wants to find/see/locate something -> intent="search", query="precise location query".
+- If user is chatting/thanking -> intent="chat", query=null.
 
-INTENT CLASSIFICATION:
-- "search": "Find gyms", "Show me restaurants in KL", "Where can I open a coffee shop in Tokyo", "Search for pet cafes"
-- "chat": "Thanks", "Hello", "What do you think?", "Tell me about your features", "You're welcome"
-
-OUTPUT ONLY THIS JSON FORMAT. NO OTHER TEXT.`;
-
-function cleanHistoryForGemini(history: ChatMessage[]): Array<{ role: 'user' | 'model'; content: string }> {
-  return history.map(msg => ({
-    role: msg.role === 'user' ? 'user' : 'model',
-    content: msg.content
-  }));
-}
+EXAMPLES:
+- User: "Find gyms in Puchong" -> {"intent": "search", "query": "gyms in Puchong", "reply": "Searching for gyms in Puchong..."}
+- User: "Thanks!" -> {"intent": "chat", "query": null, "reply": "You're welcome! Let me know if you need help finding anything else."}
+`;
 
 export async function chat(
   userMessage: string,
@@ -36,42 +32,47 @@ export async function chat(
   mapContext?: ChatContext
 ): Promise<{ intent: 'search' | 'chat'; query: string | null; reply: string }> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
+    // Configure Model with System Instruction & JSON Mode
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-001',
+      systemInstruction: SYSTEM_INSTRUCTION, // Official way to set system instructions
+      generationConfig: {
+        responseMimeType: 'application/json', // Forces valid JSON output
+      },
+    });
 
-    // Clean history - only role and content
-    const cleanedHistory = cleanHistoryForGemini(history);
-
-    // Build context message
+    // Build context message with map location if available
     let contextMessage = userMessage;
     if (mapContext?.center && mapContext?.zoom) {
       contextMessage += `\n\n[Map Context: Center at ${mapContext.center.lat},${mapContext.center.lng}, Zoom ${mapContext.zoom}]`;
     }
 
+    // Start chat with cleaned history
     const chatSession = model.startChat({
-      history: [
-        { role: 'user', parts: [{ text: `Please follow these instructions:\n\n${SYSTEM_PROMPT}` }] },
-        { role: 'model', parts: [{ text: 'Understood! I will respond with only valid JSON in the format { intent, query, reply }.' }] },
-        ...cleanedHistory.map(msg => ({ role: msg.role, parts: [{ text: msg.content }] }))
-      ]
+      history: history.map((msg) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }],
+      })),
     });
 
+    // Send message and get response
     const result = await chatSession.sendMessage(contextMessage);
-    const responseText = result.response.text().trim();
+    const responseText = result.response.text();
 
-    // Parse strict JSON
+    // Parse and return JSON
     const parsed = JSON.parse(responseText);
 
     return {
       intent: parsed.intent,
       query: parsed.query,
-      reply: parsed.reply
+      reply: parsed.reply,
     };
   } catch (error) {
     console.error('Gemini chat error:', error);
     return {
       intent: 'chat',
       query: null,
-      reply: 'I apologize, but I encountered an error processing your request. Please try again.'
+      reply: 'I apologize, but I encountered an error processing your request. Please try again.',
     };
   }
 }
