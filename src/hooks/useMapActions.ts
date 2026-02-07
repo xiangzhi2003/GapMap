@@ -35,6 +35,7 @@ export function useMapActions(): UseMapActionsResult {
   const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
+  const isPaginatingRef = useRef<boolean>(false);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
@@ -299,7 +300,16 @@ export function useMapActions(): UseMapActionsResult {
             openNow: place.opening_hours?.isOpen?.(),
           }));
 
-          setSearchResults(places);
+          // Store the count before updating for proper marker numbering
+          const previousCount = isPaginatingRef.current ? markersRef.current.length : 0;
+
+          // If paginating, append to existing results; otherwise replace
+          if (isPaginatingRef.current) {
+            setSearchResults((prev) => [...prev, ...places]);
+            isPaginatingRef.current = false;
+          } else {
+            setSearchResults(places);
+          }
 
           // Store pagination token
           if (pagination?.hasNextPage) {
@@ -312,6 +322,7 @@ export function useMapActions(): UseMapActionsResult {
 
           // Add markers for results
           const bounds = new google.maps.LatLngBounds();
+          const startIndex = previousCount;
           places.forEach((place, index) => {
             const markerColor = getCategoryColor(place.types);
 
@@ -321,7 +332,7 @@ export function useMapActions(): UseMapActionsResult {
               title: place.name,
               animation: google.maps.Animation.DROP,
               label: {
-                text: String(index + 1),
+                text: String(startIndex + index + 1),
                 color: '#ffffff',
                 fontSize: '12px',
                 fontWeight: 'bold',
@@ -394,100 +405,17 @@ export function useMapActions(): UseMapActionsResult {
     if (!paginationRef.current || !paginationRef.current.hasNextPage) return;
 
     setIsSearching(true);
+    isPaginatingRef.current = true;
 
     try {
-      // Store current results count for label numbering
-      const currentCount = searchResults.length;
-
-      paginationRef.current.nextPage((results, status, pagination) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const newPlaces: PlaceResult[] = results.map((place) => ({
-            placeId: place.place_id || '',
-            name: place.name || 'Unknown',
-            address: place.formatted_address || '',
-            location: {
-              lat: place.geometry?.location?.lat() || 0,
-              lng: place.geometry?.location?.lng() || 0,
-            },
-            rating: place.rating,
-            userRatingsTotal: place.user_ratings_total,
-            types: place.types,
-            openNow: place.opening_hours?.isOpen?.(),
-          }));
-
-          // APPEND to existing results
-          setSearchResults((prev) => [...prev, ...newPlaces]);
-
-          // Update pagination
-          if (pagination?.hasNextPage) {
-            paginationRef.current = pagination;
-            setNextPageToken('available');
-          } else {
-            paginationRef.current = null;
-            setNextPageToken(null);
-          }
-
-          // Add markers for new results
-          newPlaces.forEach((place, index) => {
-            const markerColor = getCategoryColor(place.types);
-
-            const marker = new google.maps.Marker({
-              position: place.location,
-              map,
-              title: place.name,
-              animation: google.maps.Animation.DROP,
-              label: {
-                text: String(currentCount + index + 1),
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              },
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 14,
-                fillColor: markerColor,
-                fillOpacity: 0.9,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
-              },
-            });
-
-            const infoWindow = new google.maps.InfoWindow({
-              content: '<div style="padding: 20px; color: white;">Loading details...</div>',
-              maxWidth: 400,
-            });
-
-            marker.addListener('click', async () => {
-              infoWindow.open(map, marker);
-              const details = await getPlaceDetails(place.placeId, map);
-              if (details) {
-                infoWindow.setContent(renderRichInfoWindow(details));
-              } else {
-                infoWindow.setContent('<div style="padding: 20px; color: white;">Failed to load details</div>');
-              }
-            });
-
-            markersRef.current.push(marker);
-          });
-
-          // Update clusterer with all markers
-          if (clustererRef.current) {
-            clustererRef.current.clearMarkers();
-          }
-          if (markersRef.current.length > 0) {
-            clustererRef.current = new MarkerClusterer({
-              map,
-              markers: markersRef.current,
-            });
-          }
-        }
-        setIsSearching(false);
-      });
+      // nextPage() will trigger the same callback from the original textSearch
+      paginationRef.current.nextPage();
     } catch (error) {
       console.error('Load more error:', error);
       setIsSearching(false);
+      isPaginatingRef.current = false;
     }
-  }, [searchResults.length, getPlaceDetails]);
+  }, []);
 
   const getDirections = useCallback(async (
     origin: string,
