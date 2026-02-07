@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, X } from 'lucide-react';
+import { Map, Sparkles, Menu } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from './SearchBar';
@@ -42,10 +42,10 @@ export default function ChatSidebar({
     <AnimatePresence>
       {isOpen && (
         <motion.aside
-          initial={{ x: -320, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -320, opacity: 0 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          initial={{ x: -320 }}
+          animate={{ x: 0 }}
+          exit={{ x: -320 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className="w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col"
         >
           {/* Header */}
@@ -67,7 +67,7 @@ export default function ChatSidebar({
                 onClick={onClose}
                 className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
               >
-                <X size={16} className="text-gray-400" />
+                <Menu size={16} className="text-gray-400" />
               </button>
             </div>
           </div>
