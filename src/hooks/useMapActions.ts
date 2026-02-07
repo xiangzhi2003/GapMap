@@ -83,6 +83,8 @@ export function useMapActions(): UseMapActionsResult {
 
   const clearSearchResults = useCallback(() => {
     setSearchResults([]);
+    setNextPageToken(null);
+    paginationRef.current = null;
     clearMarkers();
   }, [clearMarkers]);
 
