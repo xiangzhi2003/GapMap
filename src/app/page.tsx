@@ -11,7 +11,6 @@ import { ChatContext } from '@/types/chat';
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isInStreetView, setIsInStreetView] = useState(false);
 
   const { messages, isLoading, sendMessage } = useChat();
   const {
@@ -71,7 +70,6 @@ export default function Home() {
   }, [map, loadMoreResults]);
 
   const handleStreetViewChange = useCallback((inStreetView: boolean) => {
-    setIsInStreetView(inStreetView);
     // Auto-hide sidebar when entering Street View (like Google Maps)
     if (inStreetView) {
       setIsSidebarOpen(false);
@@ -80,13 +78,11 @@ export default function Home() {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
-      {/* Sidebar Toggle Button - smooth transition, adjusts position for Street View */}
+      {/* Sidebar Toggle Button - always at left side */}
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className={`absolute top-4 z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all duration-300 ease-out ${
-            isInStreetView ? 'left-[200px]' : 'left-4'
-          }`}
+          className="absolute top-4 left-4 z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all duration-300 ease-out"
         >
           <Menu size={20} className="text-white" />
         </button>
