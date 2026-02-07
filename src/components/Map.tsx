@@ -206,40 +206,61 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
 
-      {/* Unified Street View header (arrow + location + actions in one bar) */}
+      {/* Enhanced Street View header - Google Maps style */}
       {isStreetView && (
-        <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-3 sm:right-auto sm:w-[420px] z-[100] h-[52px] bg-[#11151b]/95 backdrop-blur-sm rounded-[2px] shadow-lg border border-[#232a35] flex items-center overflow-visible">
+        <div className="absolute top-3 left-3 right-3 sm:right-auto sm:max-w-[360px] z-[100] bg-[#202124]/95 backdrop-blur-md rounded-lg shadow-2xl flex items-stretch overflow-visible">
+          {/* Back button */}
           <button
             onClick={exitStreetView}
-            className="h-full px-3 text-white hover:bg-white/5 transition-colors"
+            className="flex items-center justify-center w-12 text-white/90 hover:bg-white/10 transition-colors rounded-l-lg"
             title="Back to map"
             aria-label="Back to map"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={22} strokeWidth={2} />
           </button>
 
-          <div className="min-w-0 flex-1 px-1">
-            <p className="text-white text-[17px] font-semibold leading-tight truncate">{streetViewTitle}</p>
+          {/* Location info - main content */}
+          <div className="flex-1 py-3 pr-4 min-w-0">
+            {/* Main title */}
+            <h2 className="text-white text-[15px] font-medium leading-snug truncate">
+              {streetViewTitle}
+            </h2>
+            {/* Subtitle - location details */}
             {streetViewSubtitle && (
-              <p className="text-gray-300 text-[14px] leading-tight truncate">{streetViewSubtitle}</p>
+              <p className="text-[#9aa0a6] text-[13px] leading-snug truncate mt-0.5">
+                {streetViewSubtitle}
+              </p>
             )}
+            {/* Google Street View branding */}
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <svg
+                viewBox="0 0 24 24"
+                className="w-4 h-4 text-[#4285f4]"
+                fill="currentColor"
+              >
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
+              <span className="text-[#9aa0a6] text-[12px] font-normal">Google Street View</span>
+            </div>
           </div>
 
-          <div className="h-7 w-px bg-white/20 mx-1" />
-
+          {/* Right side - Location pin button */}
           <button
             onClick={openStreetViewInGoogleMaps}
-            className="h-full px-2 text-white/80 hover:text-white hover:bg-white/5 transition-colors"
-            title="Open this view in Google Maps"
-            aria-label="Open this view in Google Maps"
+            className="flex items-center justify-center w-12 text-[#8ab4f8] hover:bg-white/10 transition-colors border-l border-white/10"
+            title="Open in Google Maps"
+            aria-label="Open in Google Maps"
           >
-            <MapPin size={18} />
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
           </button>
 
-          <div ref={menuRef} className="relative h-full">
+          {/* More options menu */}
+          <div ref={menuRef} className="relative">
             <button
               onClick={() => setIsStreetViewMenuOpen((prev) => !prev)}
-              className="h-full px-2 pr-3 text-white/80 hover:text-white hover:bg-white/5 transition-colors"
+              className="flex items-center justify-center w-10 h-full text-white/70 hover:text-white hover:bg-white/10 transition-colors rounded-r-lg"
               title="Street View options"
               aria-label="Street View options"
             >
@@ -247,27 +268,28 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
             </button>
 
             {isStreetViewMenuOpen && (
-              <div className="absolute top-[56px] right-0 w-56 bg-[#11151b] border border-[#232a35] rounded-md shadow-xl overflow-hidden">
+              <div className="absolute top-full right-0 mt-1 w-52 bg-[#202124] border border-[#3c4043] rounded-lg shadow-2xl overflow-hidden">
                 <button
                   onClick={openStreetViewInGoogleMaps}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-white/5 flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 flex items-center gap-3 transition-colors"
                 >
-                  <ExternalLink size={14} />
+                  <ExternalLink size={16} className="text-[#9aa0a6]" />
                   Open in Google Maps
                 </button>
                 <button
                   onClick={copyStreetViewCoordinates}
                   disabled={!streetViewCoords}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-white/5 disabled:text-gray-500 disabled:hover:bg-transparent flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 disabled:text-[#5f6368] disabled:hover:bg-transparent flex items-center gap-3 transition-colors"
                 >
-                  <Copy size={14} />
+                  <Copy size={16} className="text-[#9aa0a6]" />
                   {streetViewCoords ? 'Copy coordinates' : 'Coordinates unavailable'}
                 </button>
+                <div className="h-px bg-[#3c4043] mx-2" />
                 <button
                   onClick={exitStreetView}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-white/5 flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 flex items-center gap-3 transition-colors"
                 >
-                  <LogOut size={14} />
+                  <LogOut size={16} className="text-[#9aa0a6]" />
                   Exit Street View
                 </button>
               </div>
@@ -277,7 +299,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       )}
 
       {copyFeedback && isStreetView && (
-        <div className="absolute top-[60px] left-2 sm:left-3 z-[101] bg-[#11151b]/95 border border-[#232a35] rounded px-2 py-1 text-xs text-gray-100">
+        <div className="absolute top-20 left-3 z-[101] bg-[#202124] border border-[#3c4043] rounded-lg px-3 py-2 text-[13px] text-[#e8eaed] shadow-lg">
           {copyFeedback}
         </div>
       )}
