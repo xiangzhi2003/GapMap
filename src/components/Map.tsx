@@ -19,6 +19,14 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isStreetView, setIsStreetView] = useState(false);
+
+  const exitStreetView = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const streetView = mapInstanceRef.current.getStreetView();
+      streetView.setVisible(false);
+    }
+  }, []);
 
   const initMap = useCallback(async () => {
     if (!mapRef.current) return;
@@ -67,6 +75,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       // Configure Street View controls position
       const streetView = map.getStreetView();
       streetView.setOptions({
+        enableCloseButton: false, // Disable default back arrow, we'll add our own
         addressControlOptions: {
           position: google.maps.ControlPosition.RIGHT_TOP,
         },
@@ -78,7 +87,9 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
 
       // Listen for Street View visibility changes
       streetView.addListener('visible_changed', () => {
-        onStreetViewChange?.(streetView.getVisible());
+        const visible = streetView.getVisible();
+        setIsStreetView(visible);
+        onStreetViewChange?.(visible);
       });
 
       onMapReady(map);
@@ -101,6 +112,20 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       className="w-full h-full relative"
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
+
+      {/* Street View Back Button - Google Maps style */}
+      {isStreetView && (
+        <button
+          onClick={exitStreetView}
+          className="absolute top-2 right-[180px] z-[100] w-9 h-9 bg-[#3c4043] hover:bg-[#4a4d51] rounded-sm shadow-md flex items-center justify-center transition-colors"
+          title="Back to map"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+      )}
 
       {/* Error message overlay */}
       {mapError && (
