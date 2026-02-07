@@ -3,9 +3,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  mapAction?: MapAction;
-  mapActions?: MapAction[];
-  analysisCardData?: AnalysisCardData;
 }
 
 export interface MapAction {
@@ -89,9 +86,9 @@ export interface ChatApiRequest {
 }
 
 export interface ChatApiResponse {
+  intent: 'search' | 'chat';
+  query: string | null;
   reply: string;
-  mapAction?: MapAction;
-  mapActions?: MapAction[];
 }
 
 export interface PlaceResult {

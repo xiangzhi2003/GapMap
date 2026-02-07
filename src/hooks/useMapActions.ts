@@ -15,7 +15,6 @@ interface UseMapActionsResult {
   isAnalysisCardVisible: boolean;
   nextPageToken: string | null;
   hasMoreResults: boolean;
-  executeAction: (action: MapAction, map: google.maps.Map) => Promise<void>;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   clearSearchResults: () => void;
@@ -45,18 +44,33 @@ export function useMapActions(): UseMapActionsResult {
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   const clearMarkers = useCallback(() => {
-    // Close active InfoWindow when clearing markers
+    // Close active InfoWindow
     if (activeInfoWindowRef.current) {
       activeInfoWindowRef.current.close();
       activeInfoWindowRef.current = null;
     }
 
+    // Clear clusterer first
     if (clustererRef.current) {
       clustererRef.current.clearMarkers();
       clustererRef.current = null;
     }
-    markersRef.current.forEach((marker) => marker.setMap(null));
+
+    // Clear all markers
+    markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
+
+    // Clear heatmap
+    if (heatmapRef.current) {
+      heatmapRef.current.setMap(null);
+      heatmapRef.current = null;
+    }
+
+    // Clear green zone marker
+    if (greenZoneMarkerRef.current) {
+      greenZoneMarkerRef.current.setMap(null);
+      greenZoneMarkerRef.current = null;
+    }
   }, []);
 
   const clearDirections = useCallback(() => {
@@ -72,34 +86,6 @@ export function useMapActions(): UseMapActionsResult {
     clearMarkers();
   }, [clearMarkers]);
 
-  const clearHeatmap = useCallback(() => {
-    if (heatmapRef.current) {
-      heatmapRef.current.setMap(null);
-      heatmapRef.current = null;
-    }
-  }, []);
-
-  const clearPreviousMapState = useCallback((actionType: string) => {
-    // Clear based on action type context
-    if (actionType === 'heatmap' || actionType === 'greenZone' || actionType === 'analysisCard') {
-      // Starting business analysis - clear search markers
-      clearMarkers();
-      // Don't clear heatmap here - let showHeatmap handle it for continuity
-    }
-
-    if (actionType === 'search' || actionType === 'multiSearch') {
-      // New search - clear everything
-      clearMarkers();
-      clearHeatmap();
-      setAnalysisCard(null);
-      setIsAnalysisCardVisible(false);
-    }
-
-    if (actionType === 'directions') {
-      // Clear old directions but preserve markers
-      clearDirections();
-    }
-  }, [clearMarkers, clearHeatmap, clearDirections]);
 
   const toggleAnalysisCard = useCallback(() => {
     setIsAnalysisCardVisible((prev) => !prev);
@@ -288,15 +274,9 @@ export function useMapActions(): UseMapActionsResult {
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
     setIsSearching(true);
 
-    // Always clear previous search results when starting a new search
+    // ALWAYS clear on new search (unless paginating)
     if (!isPaginatingRef.current) {
-      clearMarkers();
-      clearHeatmap();
-      // Clear green zone marker too
-      if (greenZoneMarkerRef.current) {
-        greenZoneMarkerRef.current.setMap(null);
-        greenZoneMarkerRef.current = null;
-      }
+      clearMarkers(); // Now handles everything: markers, heatmap, green zone
     }
 
     try {
@@ -316,6 +296,11 @@ export function useMapActions(): UseMapActionsResult {
       };
 
       service.textSearch(request, (results, status, pagination) => {
+        // Reset pagination flag if we were paginating
+        if (isPaginatingRef.current) {
+          isPaginatingRef.current = false;
+        }
+
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           // REMOVED 10-result limit - now shows all results
           const places: PlaceResult[] = results.map((place) => ({
@@ -437,8 +422,9 @@ export function useMapActions(): UseMapActionsResult {
       console.error('Search error:', error);
       setSearchResults([]);
       setIsSearching(false);
+      isPaginatingRef.current = false; // Reset flag on error
     }
-  }, [clearMarkers, clearHeatmap, getPlaceDetails]);
+  }, [clearMarkers, getPlaceDetails]);
 
   const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
     void map;
@@ -495,195 +481,6 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, [clearDirections]);
 
-  const executeAction = useCallback(async (action: MapAction, map: google.maps.Map): Promise<void> => {
-    // Clear previous state intelligently based on action type
-    clearPreviousMapState(action.type);
-
-    switch (action.type) {
-      case 'search': {
-        const data = action.data as SearchActionData;
-        const query = data.location ? `${data.query} in ${data.location}` : data.query;
-        await searchPlaces(query, map);
-        break;
-      }
-      case 'directions': {
-        const data = action.data as DirectionsActionData;
-        const travelMode = google.maps.TravelMode[data.travelMode || 'DRIVING'];
-        await getDirections(data.origin, data.destination, map, travelMode);
-        break;
-      }
-      case 'marker': {
-        const data = action.data as MarkerActionData;
-        addMarker(data.lat, data.lng, data.title || 'Marker', map);
-        map.panTo({ lat: data.lat, lng: data.lng });
-        map.setZoom(15);
-        break;
-      }
-      case 'zoom': {
-        const data = action.data as ZoomActionData;
-        map.setZoom(data.level);
-        break;
-      }
-      case 'center': {
-        const data = action.data as CenterActionData;
-        map.panTo({ lat: data.lat, lng: data.lng });
-        break;
-      }
-      case 'heatmap': {
-        const data = action.data as HeatmapActionData;
-        showHeatmap(data.points, map);
-        break;
-      }
-      case 'greenZone': {
-        const data = action.data as GreenZoneActionData;
-        showGreenZone(data.lat, data.lng, data.title, data.reason, map);
-        break;
-      }
-      case 'analysisCard': {
-        const data = action.data as AnalysisCardData;
-        setAnalysisCard(data);
-        setIsAnalysisCardVisible(true);
-        break;
-      }
-      case 'multiSearch': {
-        const data = action.data as MultiSearchActionData;
-
-        const allResults: PlaceResult[] = [];
-
-        for (const type of data.types) {
-          const service = new google.maps.places.PlacesService(map);
-          const request = {
-            query: `${data.query} ${type}`,
-            location: data.location ? undefined : map.getCenter(),
-            radius: 50000,
-          };
-
-          await new Promise<void>((resolve) => {
-            service.textSearch(request, (results, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                const places = results.slice(0, 20).map(place => ({
-                  placeId: place.place_id || '',
-                  name: place.name || 'Unknown',
-                  address: place.formatted_address || '',
-                  location: {
-                    lat: place.geometry?.location?.lat() || 0,
-                    lng: place.geometry?.location?.lng() || 0,
-                  },
-                  rating: place.rating,
-                  userRatingsTotal: place.user_ratings_total,
-                  types: place.types,
-                  openNow: place.opening_hours?.isOpen?.(),
-                  category: type,  // Tag with category
-                }));
-                allResults.push(...places);
-              }
-              resolve();
-            });
-          });
-        }
-
-        setSearchResults(allResults);
-
-        // Create markers with category-based colors
-        const bounds = new google.maps.LatLngBounds();
-        allResults.forEach((place, index) => {
-          const markerColor = place.category ? (CATEGORY_COLORS[place.category] || CATEGORY_COLORS.default) : getCategoryColor(place.types);
-
-          const marker = new google.maps.Marker({
-            position: place.location,
-            map,
-            title: place.name,
-            animation: google.maps.Animation.DROP,
-            label: {
-              text: String(index + 1),
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 'bold',
-            },
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 14,
-              fillColor: markerColor,
-              fillOpacity: 0.9,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
-            },
-          });
-
-          const infoWindow = new google.maps.InfoWindow({
-            content: '<div style="padding: 20px; color: white;">Loading details...</div>',
-            maxWidth: 400,
-          });
-
-          marker.addListener('click', async () => {
-            // Close previously opened InfoWindow
-            if (activeInfoWindowRef.current) {
-              activeInfoWindowRef.current.close();
-            }
-
-            // Open new InfoWindow and set it as active
-            infoWindow.open(map, marker);
-            activeInfoWindowRef.current = infoWindow;
-
-            const details = await getPlaceDetails(place.placeId, map);
-
-            if (details) {
-              infoWindow.setContent(renderRichInfoWindow(details));
-            } else {
-              infoWindow.setContent('<div style="padding: 20px; color: white;">Failed to load details</div>');
-            }
-          });
-
-          markersRef.current.push(marker);
-          bounds.extend(place.location);
-        });
-
-        // Create marker clusterer
-        if (markersRef.current.length > 0) {
-          clustererRef.current = new MarkerClusterer({
-            map,
-            markers: markersRef.current,
-          });
-        }
-
-        // Fit map to show all results
-        if (allResults.length > 0) {
-          map.fitBounds(bounds);
-          const listener = google.maps.event.addListener(map, 'idle', () => {
-            const zoom = map.getZoom();
-            if (zoom && zoom > 15) map.setZoom(15);
-            google.maps.event.removeListener(listener);
-          });
-        }
-        break;
-      }
-      case 'clearTopic': {
-        const data = action.data as ClearTopicActionData;
-        console.log(`Topic changed to: ${data.newTopic} - ${data.reason}`);
-
-        // Full map state clear
-        clearMarkers();
-        clearHeatmap();
-        clearDirections();
-
-        // Clear analysis card
-        setAnalysisCard(null);
-        setIsAnalysisCardVisible(false);
-
-        // Clear search results
-        setSearchResults([]);
-        setNextPageToken(null);
-        paginationRef.current = null;
-
-        // Clear green zone marker
-        if (greenZoneMarkerRef.current) {
-          greenZoneMarkerRef.current.setMap(null);
-          greenZoneMarkerRef.current = null;
-        }
-        break;
-      }
-    }
-  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails, clearPreviousMapState, clearHeatmap, clearDirections]);
 
   return {
     searchResults,
@@ -694,7 +491,6 @@ export function useMapActions(): UseMapActionsResult {
     isAnalysisCardVisible,
     nextPageToken,
     hasMoreResults: nextPageToken !== null,
-    executeAction,
     searchPlaces,
     getDirections,
     clearSearchResults,

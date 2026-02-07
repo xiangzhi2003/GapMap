@@ -19,7 +19,6 @@ export default function Home() {
     directionsResult,
     recentSearches,
     hasMoreResults,
-    executeAction,
     searchPlaces,
     clearSearchResults,
     clearDirections,
@@ -41,15 +40,21 @@ export default function Home() {
 
   const handleSendMessage = useCallback(async (content: string) => {
     const mapContext = getMapContext();
-    const mapActions = await sendMessage(content, mapContext);
+    const result = await sendMessage(content, mapContext);
 
-    // Execute all map actions returned by the AI
-    if (mapActions && map) {
-      for (const action of mapActions) {
-        await executeAction(action, map);
+    // Handle intent-based actions
+    if (result && map) {
+      if (result.intent === 'search' && result.query) {
+        // Clear everything first
+        clearSearchResults(); // Calls clearMarkers internally
+        clearDirections();
+
+        // Then execute search
+        await searchPlaces(result.query, map);
       }
+      // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, executeAction]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {

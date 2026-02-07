@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ChatMessage, MapAction, ChatContext } from '@/types/chat';
+import { ChatMessage, ChatContext, ChatApiResponse } from '@/types/chat';
 
 interface UseChatResult {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  sendMessage: (content: string, mapContext?: ChatContext) => Promise<MapAction[] | undefined>;
+  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'chat'; query: string | null } | undefined>;
   clearMessages: () => void;
 }
 
@@ -16,7 +16,7 @@ export function useChat(): UseChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<MapAction[] | undefined> => {
+  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'chat'; query: string | null } | undefined> => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -29,42 +29,42 @@ export function useChat(): UseChatResult {
     setError(null);
 
     try {
+      // Clean history: only send role, content, timestamp (as ISO string)
+      const cleanedHistory = messages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString()
+      }));
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
-          history: messages,
+          history: cleanedHistory,
           mapContext,
         }),
       });
 
-      const data = await response.json();
+      const data: ChatApiResponse = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to get response');
+        throw new Error((data as unknown as { error: string }).error || 'Failed to get response');
       }
 
-      // Extract analysis card data if present
-      const analysisCardAction = data.mapActions?.find(
-        (action: MapAction) => action.type === 'analysisCard'
-      );
-      const analysisCardData = analysisCardAction
-        ? (analysisCardAction.data as import('@/types/chat').AnalysisCardData)
-        : undefined;
-
+      // Store ONLY clean message - no extra fields
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: data.reply,
         timestamp: new Date(),
-        mapAction: data.mapAction,
-        mapActions: data.mapActions,
-        analysisCardData,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-      return data.mapActions || (data.mapAction ? [data.mapAction] : undefined);
+
+      // Return intent and query for map handling
+      return { intent: data.intent, query: data.query };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
       setError(errorMessage);

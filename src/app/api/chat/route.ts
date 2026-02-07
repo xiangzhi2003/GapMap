@@ -14,9 +14,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
     const result = await chat(message, history || [], mapContext);
 
     return NextResponse.json({
-      reply: result.reply,
-      mapAction: result.mapAction,
-      mapActions: result.mapActions,
+      intent: result.intent,
+      query: result.query,
+      reply: result.reply
     });
   } catch (error) {
     console.error('Chat API error:', error);
