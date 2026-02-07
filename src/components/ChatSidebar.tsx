@@ -99,12 +99,12 @@ export default function ChatSidebar({
                     onClick={() => onSendMessage('I want to open a Pet Cafe in Selangor. Where should I set up?')}
                   />
                   <SuggestionButton
-                    text="Coffee Shop opportunity in KL"
-                    onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
+                    text="Gym at Bukit Jalil"
+                    onClick={() => onSendMessage('I want to open a Gym at Bukit Jalil. Analyze the competition and find the best location.')}
                   />
                   <SuggestionButton
-                    text="Restaurant gap in Shah Alam"
-                    onClick={() => onSendMessage('I am looking for a good location to open a Restaurant in Shah Alam. Show me competitor analysis.')}
+                    text="Coffee Shop in KL"
+                    onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
                   />
                 </div>
               </div>
