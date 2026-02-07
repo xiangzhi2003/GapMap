@@ -302,11 +302,6 @@ export function useMapActions(): UseMapActionsResult {
       };
 
       service.textSearch(request, (results, status, pagination) => {
-        // Reset pagination flag if we were paginating
-        if (isPaginatingRef.current) {
-          isPaginatingRef.current = false;
-        }
-
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           // REMOVED 10-result limit - now shows all results
           const places: PlaceResult[] = results.map((place) => ({
