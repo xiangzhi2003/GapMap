@@ -1,14 +1,16 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Map, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Map, Sparkles, X } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from './SearchBar';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
 
 interface ChatSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
   messages: ChatMessageType[];
   isLoading: boolean;
   onSendMessage: (message: string) => void;
@@ -19,6 +21,8 @@ interface ChatSidebarProps {
 }
 
 export default function ChatSidebar({
+  isOpen,
+  onClose,
   messages,
   isLoading,
   onSendMessage,
@@ -35,92 +39,105 @@ export default function ChatSidebar({
   }, [messages]);
 
   return (
-    <motion.aside
-      initial={{ x: -320, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col"
-    >
-      {/* Header */}
-      <div className="p-4 border-b border-[#2a2a3a]">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
-            <Map size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              GapMap
-              <Sparkles size={14} className="text-cyan-400" />
-            </h1>
-            <p className="text-xs text-gray-500">Market Gap Intelligence</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <SearchBar
-        onSearch={onSearch}
-        onClear={onClearSearch}
-        isSearching={isSearching}
-        recentSearches={recentSearches}
-      />
-
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
-              <Sparkles size={28} className="text-cyan-400" />
-            </div>
-            <h3 className="text-lg font-medium text-white mb-2">
-              Welcome to GapMap
-            </h3>
-            <p className="text-sm text-gray-400 mb-4">
-              Find the best location to open your business using AI-powered competitor analysis.
-            </p>
-            <div className="space-y-2 w-full">
-              <SuggestionButton
-                text="Open a Pet Cafe in Selangor"
-                onClick={() => onSendMessage('I want to open a Pet Cafe in Selangor. Where should I set up?')}
-              />
-              <SuggestionButton
-                text="Coffee Shop opportunity in KL"
-                onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
-              />
-              <SuggestionButton
-                text="Restaurant gap in Shah Alam"
-                onClick={() => onSendMessage('I am looking for a good location to open a Restaurant in Shah Alam. Show me competitor analysis.')}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
-            ))}
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex gap-3"
-              >
-                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.aside
+          initial={{ x: -320, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -320, opacity: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col"
+        >
+          {/* Header */}
+          <div className="p-4 border-b border-[#2a2a3a]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                  <Map size={20} className="text-white" />
                 </div>
-              </motion.div>
-            )}
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
+                <div>
+                  <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                    GapMap
+                    <Sparkles size={14} className="text-cyan-400" />
+                  </h1>
+                  <p className="text-xs text-gray-500">Market Gap Intelligence</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+              >
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+          </div>
 
-      {/* Chat Input */}
-      <ChatInput onSend={onSendMessage} isLoading={isLoading} />
-    </motion.aside>
+          {/* Search Bar */}
+          <SearchBar
+            onSearch={onSearch}
+            onClear={onClearSearch}
+            isSearching={isSearching}
+            recentSearches={recentSearches}
+          />
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
+                  <Sparkles size={28} className="text-cyan-400" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">
+                  Welcome to GapMap
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Find the best location to open your business using AI-powered competitor analysis.
+                </p>
+                <div className="space-y-2 w-full">
+                  <SuggestionButton
+                    text="Open a Pet Cafe in Selangor"
+                    onClick={() => onSendMessage('I want to open a Pet Cafe in Selangor. Where should I set up?')}
+                  />
+                  <SuggestionButton
+                    text="Coffee Shop opportunity in KL"
+                    onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
+                  />
+                  <SuggestionButton
+                    text="Restaurant gap in Shah Alam"
+                    onClick={() => onSendMessage('I am looking for a good location to open a Restaurant in Shah Alam. Show me competitor analysis.')}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                {messages.map((message) => (
+                  <ChatMessage key={message.id} message={message} />
+                ))}
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                <div ref={messagesEndRef} />
+              </>
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <ChatInput onSend={onSendMessage} isLoading={isLoading} />
+        </motion.aside>
+      )}
+    </AnimatePresence>
   );
 }
 

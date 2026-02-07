@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { Menu } from 'lucide-react';
 import Map from '@/components/Map';
 import ChatSidebar from '@/components/ChatSidebar';
 import { useChat } from '@/hooks/useChat';
@@ -9,6 +10,7 @@ import { ChatContext } from '@/types/chat';
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const { messages, isLoading, sendMessage } = useChat();
   const {
@@ -73,6 +75,8 @@ export default function Home() {
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-[#0a0a0f]">
       <ChatSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         messages={messages}
         isLoading={isLoading}
         onSendMessage={handleSendMessage}
@@ -82,6 +86,15 @@ export default function Home() {
         recentSearches={recentSearches}
       />
       <div className="flex-1 relative">
+        {/* Sidebar Toggle Button */}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute top-4 left-4 z-50 w-10 h-10 bg-[#12121a] border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all"
+          >
+            <Menu size={20} className="text-white" />
+          </button>
+        )}
         <Map
           onMapReady={handleMapReady}
           searchResults={searchResults}
