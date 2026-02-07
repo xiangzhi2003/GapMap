@@ -19,14 +19,11 @@ export default function Home() {
     isSearching,
     directionsResult,
     recentSearches,
-    analysisCard,
-    isAnalysisCardVisible,
     hasMoreResults,
     executeAction,
     searchPlaces,
     clearSearchResults,
     clearDirections,
-    toggleAnalysisCard,
     loadMoreResults,
   } = useMapActions();
 
@@ -114,9 +111,6 @@ export default function Home() {
           onMapReady={handleMapReady}
           searchResults={searchResults}
           directionsResult={directionsResult}
-          analysisCard={analysisCard}
-          isAnalysisCardVisible={isAnalysisCardVisible}
-          onToggleAnalysisCard={toggleAnalysisCard}
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}
