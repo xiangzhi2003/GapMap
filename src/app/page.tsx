@@ -68,6 +68,11 @@ export default function Home() {
     clearDirections();
   }, [clearSearchResults, clearDirections]);
 
+  const handleClearMap = useCallback(() => {
+    clearSearchResults(); // Clears markers
+    clearDirections();     // Clears directions
+  }, [clearSearchResults, clearDirections]);
+
   const handleLoadMore = useCallback(async () => {
     if (map) {
       await loadMoreResults(map);
@@ -104,6 +109,8 @@ export default function Home() {
         onClearSearch={handleClearSearch}
         isSearching={isSearching}
         recentSearches={recentSearches}
+        onClearMap={handleClearMap}
+        hasMarkers={searchResults.length > 0}
       />
 
       {/* Map - Full Width */}

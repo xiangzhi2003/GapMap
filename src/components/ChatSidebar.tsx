@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, Menu } from 'lucide-react';
+import { Map, Sparkles, Menu, Trash2 } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from './SearchBar';
@@ -18,6 +18,8 @@ interface ChatSidebarProps {
   onClearSearch: () => void;
   isSearching: boolean;
   recentSearches: string[];
+  onClearMap: () => void;
+  hasMarkers: boolean;
 }
 
 export default function ChatSidebar({
@@ -30,6 +32,8 @@ export default function ChatSidebar({
   onClearSearch,
   isSearching,
   recentSearches,
+  onClearMap,
+  hasMarkers,
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +136,19 @@ export default function ChatSidebar({
               </>
             )}
           </div>
+
+          {/* Clear Map Button - only show when there are markers */}
+          {hasMarkers && (
+            <div className="px-4 pb-2">
+              <button
+                onClick={onClearMap}
+                className="w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-400 text-sm font-medium transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Trash2 size={16} />
+                Clear All Markers
+              </button>
+            </div>
+          )}
 
           {/* Chat Input */}
           <ChatInput onSend={onSendMessage} isLoading={isLoading} />
