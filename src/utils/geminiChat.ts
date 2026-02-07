@@ -34,7 +34,7 @@ export async function chat(
   try {
     // Configure Model with System Instruction & JSON Mode
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_INSTRUCTION, // Official way to set system instructions
       generationConfig: {
         responseMimeType: 'application/json', // Forces valid JSON output
