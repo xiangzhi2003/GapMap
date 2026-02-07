@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { MapAction, SearchActionData, DirectionsActionData, MarkerActionData, ZoomActionData, CenterActionData, HeatmapActionData, GreenZoneActionData, AnalysisCardData, PlaceResult, MultiSearchActionData } from '@/types/chat';
+import { MapAction, SearchActionData, DirectionsActionData, MarkerActionData, ZoomActionData, CenterActionData, HeatmapActionData, GreenZoneActionData, AnalysisCardData, PlaceResult, MultiSearchActionData, ClearTopicActionData } from '@/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { renderRichInfoWindow } from '@/utils/infoWindowRenderer';
 import { getCategoryColor, CATEGORY_COLORS } from '@/utils/markerIcons';
@@ -610,8 +610,33 @@ export function useMapActions(): UseMapActionsResult {
         }
         break;
       }
+      case 'clearTopic': {
+        const data = action.data as ClearTopicActionData;
+        console.log(`Topic changed to: ${data.newTopic} - ${data.reason}`);
+
+        // Full map state clear
+        clearMarkers();
+        clearHeatmap();
+        clearDirections();
+
+        // Clear analysis card
+        setAnalysisCard(null);
+        setIsAnalysisCardVisible(false);
+
+        // Clear search results
+        setSearchResults([]);
+        setNextPageToken(null);
+        paginationRef.current = null;
+
+        // Clear green zone marker
+        if (greenZoneMarkerRef.current) {
+          greenZoneMarkerRef.current.setMap(null);
+          greenZoneMarkerRef.current = null;
+        }
+        break;
+      }
     }
-  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails, clearPreviousMapState]);
+  }, [searchPlaces, getDirections, addMarker, showHeatmap, showGreenZone, clearMarkers, getPlaceDetails, clearPreviousMapState, clearHeatmap, clearDirections]);
 
   return {
     searchResults,

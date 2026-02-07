@@ -9,8 +9,8 @@ export interface ChatMessage {
 }
 
 export interface MapAction {
-  type: 'search' | 'directions' | 'marker' | 'zoom' | 'center' | 'heatmap' | 'greenZone' | 'analysisCard' | 'multiSearch';
-  data: SearchActionData | DirectionsActionData | MarkerActionData | ZoomActionData | CenterActionData | HeatmapActionData | GreenZoneActionData | AnalysisCardData | MultiSearchActionData;
+  type: 'search' | 'directions' | 'marker' | 'zoom' | 'center' | 'heatmap' | 'greenZone' | 'analysisCard' | 'multiSearch' | 'clearTopic';
+  data: SearchActionData | DirectionsActionData | MarkerActionData | ZoomActionData | CenterActionData | HeatmapActionData | GreenZoneActionData | AnalysisCardData | MultiSearchActionData | ClearTopicActionData;
 }
 
 export interface SearchActionData {
@@ -69,6 +69,11 @@ export interface MultiSearchActionData {
   query: string;
   location?: string;
   types: string[];  // e.g., ['restaurant', 'cafe', 'bar']
+}
+
+export interface ClearTopicActionData {
+  newTopic: string;
+  reason: string;
 }
 
 export interface ChatContext {

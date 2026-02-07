@@ -92,6 +92,27 @@ Travel modes: DRIVING, WALKING, BICYCLING, TRANSIT
 {"action": "analysisCard", "businessType": "Pet Cafe", "location": "Selangor", "redZones": [{"name": "Subang Jaya", "reason": "12 existing pet cafes, fully saturated market", "count": 12}], "orangeZones": [{"name": "Petaling Jaya", "reason": "5 competitors but growing demand, needs strong USP", "count": 5}], "greenZones": [{"name": "Semenyih", "reason": "Zero competitors, growing residential population", "count": 0}], "recommendation": "Open in Semenyih. First-mover advantage in an underserved area with a rapidly growing residential population. Capture the entire local pet owner market before competitors move in."}
 \`\`\`
 
+9. Clear previous topic (REQUIRED when user switches business type):
+\`\`\`json
+{"action": "clearTopic", "newTopic": "pet cafes", "reason": "User switched from gym search to pet cafe search"}
+\`\`\`
+
+TOPIC CHANGE DETECTION (CRITICAL):
+When the user's query shifts to a DIFFERENT business type or search category than the previous search/analysis, you MUST output a clearTopic action BEFORE any new search/analysis actions.
+
+Examples requiring clearTopic:
+- "Find gyms" then "What about pet cafes?" = Topic changed (gym to pet cafe)
+- "Analyze coffee shops" then "Show me bookstores" = Topic changed (coffee to bookstores)
+- "Restaurants near me" then "Find me a gym" = Topic changed (restaurants to gym)
+
+DO NOT use clearTopic for:
+- Follow-up questions: "Which gym has the best ratings?" (same topic)
+- Refinements: "Show me 24-hour gyms only" (same topic, filtered)
+- General questions: "What's the weather?" (no map change needed)
+- First search of the conversation (nothing to clear)
+
+When topic changes: Output clearTopic FIRST, then the new search/analysis actions.
+
 CRITICAL RULES:
 - When the user asks about opening a business or wants market/competitor analysis, ALWAYS output heatmap + greenZone + analysisCard actions together. Use realistic coordinates for the mentioned region.
 - Use real place names and plausible competitor counts based on the area.
@@ -131,7 +152,7 @@ function extractMapActions(text: string): MapAction[] {
 
   if (actions.length === 0) {
     // Fallback: try to find raw JSON that looks like an action
-    const rawJsonRegex = /\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard|multiSearch)"[\s\S]*?\}/g;
+    const rawJsonRegex = /\{"action"\s*:\s*"(search|directions|marker|zoom|center|heatmap|greenZone|analysisCard|multiSearch|clearTopic)"[\s\S]*?\}/g;
     const rawMatches = [...text.matchAll(rawJsonRegex)];
     for (const match of rawMatches) {
       try {
@@ -228,6 +249,14 @@ function parseActionObject(obj: Record<string, unknown>): MapAction | undefined 
           query: obj.query as string,
           location: obj.location as string | undefined,
           types: obj.types as string[],
+        },
+      };
+    case 'clearTopic':
+      return {
+        type: 'clearTopic',
+        data: {
+          newTopic: obj.newTopic as string,
+          reason: obj.reason as string,
         },
       };
     default:
