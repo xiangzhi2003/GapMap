@@ -42,10 +42,10 @@ export default function ChatSidebar({
     <AnimatePresence>
       {isOpen && (
         <motion.aside
-          initial={{ x: -320 }}
-          animate={{ x: 0 }}
-          exit={{ x: -320 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+          initial={{ x: -320, opacity: 0.8 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -320, opacity: 0.8 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className="fixed left-0 top-0 z-50 w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
         >
           {/* Header */}

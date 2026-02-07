@@ -113,14 +113,14 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
 
-      {/* Street View Back Button - Google Maps style */}
+      {/* Street View Back Button - connects visually with address control */}
       {isStreetView && (
         <button
           onClick={exitStreetView}
-          className="absolute top-2 right-[180px] z-[100] w-9 h-9 bg-[#3c4043] hover:bg-[#4a4d51] rounded-sm shadow-md flex items-center justify-center transition-colors"
+          className="absolute top-2 right-[215px] z-[100] h-[52px] px-3 bg-[#3c4043] hover:bg-[#4a4d51] rounded-l-sm shadow-md flex items-center justify-center transition-colors border-r border-[#5f6368]"
           title="Back to map"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
