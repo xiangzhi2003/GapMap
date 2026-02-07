@@ -86,8 +86,9 @@ export interface ChatApiRequest {
 }
 
 export interface ChatApiResponse {
-  intent: 'search' | 'chat';
+  intent: 'search' | 'directions' | 'analyze' | 'chat';
   query: string | null;
+  directions: { origin: string; destination: string } | null;
   reply: string;
 }
 

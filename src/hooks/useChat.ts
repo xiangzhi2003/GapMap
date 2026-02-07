@@ -7,7 +7,7 @@ interface UseChatResult {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'chat'; query: string | null } | undefined>;
+  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'directions' | 'analyze' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined>;
   clearMessages: () => void;
 }
 
@@ -16,7 +16,7 @@ export function useChat(): UseChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'chat'; query: string | null } | undefined> => {
+  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'directions' | 'analyze' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined> => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -63,8 +63,8 @@ export function useChat(): UseChatResult {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Return intent and query for map handling
-      return { intent: data.intent, query: data.query };
+      // Return intent, query, and directions for map handling
+      return { intent: data.intent, query: data.query, directions: data.directions };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
       setError(errorMessage);

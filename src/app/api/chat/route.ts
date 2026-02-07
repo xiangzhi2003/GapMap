@@ -16,6 +16,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
     return NextResponse.json({
       intent: result.intent,
       query: result.query,
+      directions: result.directions,
       reply: result.reply
     });
   } catch (error) {

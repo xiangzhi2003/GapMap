@@ -20,6 +20,7 @@ export default function Home() {
     recentSearches,
     hasMoreResults,
     searchPlaces,
+    getDirections,
     clearSearchResults,
     clearDirections,
     loadMoreResults,
@@ -44,17 +45,18 @@ export default function Home() {
 
     // Handle intent-based actions
     if (result && map) {
-      if (result.intent === 'search' && result.query) {
-        // Clear everything first
-        clearSearchResults(); // Calls clearMarkers internally
+      if ((result.intent === 'search' || result.intent === 'analyze') && result.query) {
+        clearSearchResults();
         clearDirections();
-
-        // Then execute search
         await searchPlaces(result.query, map);
+      } else if (result.intent === 'directions' && result.directions) {
+        clearSearchResults();
+        clearDirections();
+        await getDirections(result.directions.origin, result.directions.destination, map);
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {

@@ -42,6 +42,7 @@ export function useMapActions(): UseMapActionsResult {
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const paginationRef = useRef<google.maps.places.PlaceSearchPagination | null>(null);
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const searchGenerationRef = useRef<number>(0);
 
   const clearMarkers = useCallback(() => {
     // Close active InfoWindow
@@ -280,6 +281,12 @@ export function useMapActions(): UseMapActionsResult {
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
     setIsSearching(true);
 
+    // Increment search generation to invalidate stale callbacks
+    if (!isPaginatingRef.current) {
+      searchGenerationRef.current += 1;
+    }
+    const currentGeneration = searchGenerationRef.current;
+
     // ALWAYS clear on new search (unless paginating)
     if (!isPaginatingRef.current) {
       clearMarkers(); // Now handles everything: markers, heatmap, green zone
@@ -302,6 +309,11 @@ export function useMapActions(): UseMapActionsResult {
       };
 
       service.textSearch(request, (results, status, pagination) => {
+        // Ignore stale callback from a previous search
+        if (currentGeneration !== searchGenerationRef.current) {
+          return;
+        }
+
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           // REMOVED 10-result limit - now shows all results
           const places: PlaceResult[] = results.map((place) => ({
@@ -393,6 +405,12 @@ export function useMapActions(): UseMapActionsResult {
             markersRef.current.push(marker);
             bounds.extend(place.location);
           });
+
+          // Clear old clusterer before creating new one (safety net)
+          if (clustererRef.current) {
+            clustererRef.current.clearMarkers();
+            clustererRef.current = null;
+          }
 
           // Create marker clusterer
           if (markersRef.current.length > 0) {

@@ -45,13 +45,22 @@ export default function ChatSidebar({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.aside
-          initial={{ x: -320, opacity: 0.8 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -320, opacity: 0.8 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed left-0 top-0 z-50 w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
-        >
+        <>
+          {/* Mobile backdrop overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
+          />
+          <motion.aside
+            initial={{ x: -320, opacity: 0.8 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -320, opacity: 0.8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed left-0 top-0 z-50 w-[85vw] sm:w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
+          >
           {/* Header */}
           <div className="p-4 border-b border-[#2a2a3a]">
             <div className="flex items-center justify-between">
@@ -153,6 +162,7 @@ export default function ChatSidebar({
           {/* Chat Input */}
           <ChatInput onSend={onSendMessage} isLoading={isLoading} />
         </motion.aside>
+        </>
       )}
     </AnimatePresence>
   );
