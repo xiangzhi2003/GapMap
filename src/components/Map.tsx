@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
+import { ArrowLeft, MapPin, MoreVertical } from 'lucide-react';
 import { loadGoogleMaps } from '@/utils/googleMaps';
 import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyles';
 import { PlaceResult } from '@/types/chat';
@@ -19,6 +20,14 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isStreetView, setIsStreetView] = useState(false);
+  const [streetViewTitle, setStreetViewTitle] = useState('Street View');
+  const [streetViewSubtitle, setStreetViewSubtitle] = useState('');
+
+  const exitStreetView = useCallback(() => {
+    if (!mapInstanceRef.current) return;
+    mapInstanceRef.current.getStreetView().setVisible(false);
+  }, []);
 
   const initMap = useCallback(async () => {
     if (!mapRef.current) return;
@@ -67,22 +76,54 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       // Configure Street View controls position
       const streetView = map.getStreetView();
       streetView.setOptions({
-        // Use Google's built-in close/back button so header controls stay aligned.
-        enableCloseButton: true,
-        addressControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_TOP,
-        },
-        fullscreenControl: true,
-        fullscreenControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_TOP,
-        },
+        // Hide separate native controls; render a unified custom header instead.
+        enableCloseButton: false,
+        addressControl: false,
+        fullscreenControl: false,
       });
+
+      const updateStreetViewLocation = () => {
+        const location = streetView.getLocation();
+        const description = location?.description?.trim() || '';
+        const shortDescription = location?.shortDescription?.trim() || '';
+
+        let title = description;
+        let subtitle = shortDescription;
+
+        if (!title && subtitle) {
+          title = subtitle;
+          subtitle = '';
+        }
+
+        if (title && !subtitle && title.includes(',')) {
+          const [first, ...rest] = title.split(',');
+          title = first.trim();
+          subtitle = rest.join(',').trim();
+        }
+
+        if (title && subtitle && title.toLowerCase() === subtitle.toLowerCase()) {
+          subtitle = '';
+        }
+
+        setStreetViewTitle(title || 'Street View');
+        setStreetViewSubtitle(subtitle);
+      };
 
       // Listen for Street View visibility changes
       streetView.addListener('visible_changed', () => {
         const visible = streetView.getVisible();
+        setIsStreetView(visible);
         onStreetViewChange?.(visible);
+        if (visible) {
+          updateStreetViewLocation();
+        } else {
+          setStreetViewTitle('Street View');
+          setStreetViewSubtitle('');
+        }
       });
+
+      streetView.addListener('position_changed', updateStreetViewLocation);
+      streetView.addListener('pano_changed', updateStreetViewLocation);
 
       onMapReady(map);
     } catch (error) {
@@ -108,6 +149,35 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       className="w-full h-full relative"
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
+
+      {/* Unified Street View header (arrow + location + actions in one bar) */}
+      {isStreetView && (
+        <div className="absolute top-3 left-3 right-3 sm:right-auto sm:w-[430px] z-[100] h-[64px] bg-[#11151b]/95 backdrop-blur-sm rounded-[2px] shadow-lg border border-[#232a35] flex items-center overflow-hidden">
+          <button
+            onClick={exitStreetView}
+            className="h-full px-5 text-white hover:bg-white/5 transition-colors"
+            title="Back to map"
+            aria-label="Back to map"
+          >
+            <ArrowLeft size={22} />
+          </button>
+
+          <div className="min-w-0 flex-1 px-2">
+            <p className="text-white text-[22px] sm:text-[24px] font-semibold leading-tight truncate">{streetViewTitle}</p>
+            {streetViewSubtitle && (
+              <p className="text-gray-300 text-[18px] sm:text-[19px] leading-tight truncate">{streetViewSubtitle}</p>
+            )}
+          </div>
+
+          <div className="h-8 w-px bg-white/20 mx-2" />
+          <div className="px-2 text-white/80" aria-hidden="true">
+            <MapPin size={20} />
+          </div>
+          <div className="px-2 pr-3 text-white/80" aria-hidden="true">
+            <MoreVertical size={20} />
+          </div>
+        </div>
+      )}
 
       {/* Error message overlay */}
       {mapError && (
