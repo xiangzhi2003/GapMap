@@ -72,6 +72,13 @@ export default function Home() {
     }
   }, [map, loadMoreResults]);
 
+  const handleStreetViewChange = useCallback((inStreetView: boolean) => {
+    // Auto-hide sidebar when entering Street View (like Google Maps)
+    if (inStreetView) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
       {/* Sidebar Toggle Button - always visible when sidebar closed */}
@@ -108,6 +115,7 @@ export default function Home() {
           onToggleAnalysisCard={toggleAnalysisCard}
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
+          onStreetViewChange={handleStreetViewChange}
         />
 
         {/* Overlay gradient for visual effect */}

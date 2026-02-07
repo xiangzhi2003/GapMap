@@ -16,9 +16,10 @@ interface MapProps {
   onToggleAnalysisCard?: () => void;
   hasMoreResults?: boolean;
   onLoadMore?: () => void;
+  onStreetViewChange?: (isStreetView: boolean) => void;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, isAnalysisCardVisible, onToggleAnalysisCard, hasMoreResults, onLoadMore }: MapProps) {
+export default function Map({ onMapReady, searchResults = [], directionsResult, analysisCard, isAnalysisCardVisible, onToggleAnalysisCard, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -78,7 +79,9 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       // Listen for Street View visibility changes
       const streetView = map.getStreetView();
       streetView.addListener('visible_changed', () => {
-        setIsStreetView(streetView.getVisible());
+        const visible = streetView.getVisible();
+        setIsStreetView(visible);
+        onStreetViewChange?.(visible);
       });
 
       onMapReady(map);
@@ -102,21 +105,21 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
 
-      {/* Exit Street View Button */}
+      {/* Exit Street View Button - Google Maps style */}
       {isStreetView && (
         <motion.button
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.15 }}
           onClick={exitStreetView}
-          className="absolute top-4 left-4 z-50 bg-white hover:bg-gray-100 text-gray-800 font-medium px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all"
+          className="absolute top-3 left-3 z-[100] w-10 h-10 bg-white hover:bg-gray-100 rounded-sm shadow-md flex items-center justify-center transition-all"
+          title="Back to map"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-          Back to Map
         </motion.button>
       )}
 
