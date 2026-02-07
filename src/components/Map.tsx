@@ -64,8 +64,19 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
 
       mapInstanceRef.current = map;
 
-      // Listen for Street View visibility changes
+      // Configure Street View controls position
       const streetView = map.getStreetView();
+      streetView.setOptions({
+        addressControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_TOP,
+        },
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_TOP,
+        },
+      });
+
+      // Listen for Street View visibility changes
       streetView.addListener('visible_changed', () => {
         onStreetViewChange?.(streetView.getVisible());
       });
