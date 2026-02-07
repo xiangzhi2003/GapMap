@@ -23,14 +23,6 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [isStreetView, setIsStreetView] = useState(false);
-
-  const exitStreetView = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const streetView = mapInstanceRef.current.getStreetView();
-      streetView.setVisible(false);
-    }
-  }, []);
 
   const initMap = useCallback(async () => {
     if (!mapRef.current) return;
@@ -79,9 +71,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       // Listen for Street View visibility changes
       const streetView = map.getStreetView();
       streetView.addListener('visible_changed', () => {
-        const visible = streetView.getVisible();
-        setIsStreetView(visible);
-        onStreetViewChange?.(visible);
+        onStreetViewChange?.(streetView.getVisible());
       });
 
       onMapReady(map);
@@ -104,24 +94,6 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       className="w-full h-full relative"
     >
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '100vh' }} />
-
-      {/* Exit Street View Button - Google Maps style */}
-      {isStreetView && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.15 }}
-          onClick={exitStreetView}
-          className="absolute top-3 left-3 z-[100] w-10 h-10 bg-white hover:bg-gray-100 rounded-sm shadow-md flex items-center justify-center transition-all"
-          title="Back to map"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </motion.button>
-      )}
 
       {/* Error message overlay */}
       {mapError && (
