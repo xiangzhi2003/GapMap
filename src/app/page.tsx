@@ -73,7 +73,18 @@ export default function Home() {
   }, [map, loadMoreResults]);
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-[#0a0a0f]">
+    <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
+      {/* Sidebar Toggle Button - always visible when sidebar closed */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="absolute top-4 left-4 z-40 w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all"
+        >
+          <Menu size={20} className="text-white" />
+        </button>
+      )}
+
+      {/* Sidebar Overlay */}
       <ChatSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -85,16 +96,9 @@ export default function Home() {
         isSearching={isSearching}
         recentSearches={recentSearches}
       />
-      <div className="flex-1 relative">
-        {/* Sidebar Toggle Button */}
-        {!isSidebarOpen && (
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="absolute top-4 left-4 z-50 w-10 h-10 bg-[#12121a] border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all"
-          >
-            <Menu size={20} className="text-white" />
-          </button>
-        )}
+
+      {/* Map - Full Width */}
+      <div className="w-full h-full">
         <Map
           onMapReady={handleMapReady}
           searchResults={searchResults}
