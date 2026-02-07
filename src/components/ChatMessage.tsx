@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bot, User } from 'lucide-react';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
-import InlineAnalysisCard from './InlineAnalysisCard';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -12,7 +10,6 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
-  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
 
   return (
     <motion.div
@@ -33,7 +30,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       </div>
 
       {/* Message content */}
-      <div className="flex-1 max-w-[80%] space-y-2">
+      <div className="flex-1 max-w-[80%]">
         {/* Message bubble */}
         <div
           className={`rounded-2xl px-4 py-2 ${
@@ -51,22 +48,6 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             {formatTime(message.timestamp)}
           </p>
         </div>
-
-        {/* Inline Analysis Card */}
-        {!isUser && message.analysisCardData && (
-          <div className="mt-2">
-            <button
-              onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-              className="flex items-center gap-2 text-xs text-purple-400 hover:text-purple-300 transition-colors mb-2"
-            >
-              {isAnalysisExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              <span className="font-medium">Market Analysis</span>
-            </button>
-            {isAnalysisExpanded && (
-              <InlineAnalysisCard data={message.analysisCardData} />
-            )}
-          </div>
-        )}
       </div>
     </motion.div>
   );

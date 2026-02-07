@@ -92,7 +92,11 @@ export function useMapActions(): UseMapActionsResult {
   }, []);
 
   const showHeatmap = useCallback((points: { lat: number; lng: number; weight: number; label?: string }[], map: google.maps.Map) => {
-    clearHeatmap();
+    // Clear existing heatmap
+    if (heatmapRef.current) {
+      heatmapRef.current.setMap(null);
+      heatmapRef.current = null;
+    }
 
     const weightedLocations: google.maps.visualization.WeightedLocation[] = points.map((p) => ({
       location: new google.maps.LatLng(p.lat, p.lng),
@@ -118,7 +122,7 @@ export function useMapActions(): UseMapActionsResult {
     const bounds = new google.maps.LatLngBounds();
     points.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
     map.fitBounds(bounds);
-  }, [clearHeatmap]);
+  }, []);
 
   const showGreenZone = useCallback((lat: number, lng: number, title: string, reason: string, map: google.maps.Map) => {
     // Remove previous green zone marker if any
