@@ -42,8 +42,15 @@ export function useMapActions(): UseMapActionsResult {
   const greenZoneMarkerRef = useRef<google.maps.Marker | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const paginationRef = useRef<google.maps.places.PlaceSearchPagination | null>(null);
+  const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   const clearMarkers = useCallback(() => {
+    // Close active InfoWindow when clearing markers
+    if (activeInfoWindowRef.current) {
+      activeInfoWindowRef.current.close();
+      activeInfoWindowRef.current = null;
+    }
+
     if (clustererRef.current) {
       clustererRef.current.clearMarkers();
       clustererRef.current = null;
@@ -164,7 +171,14 @@ export function useMapActions(): UseMapActionsResult {
     });
 
     marker.addListener('click', () => {
+      // Close previously opened InfoWindow
+      if (activeInfoWindowRef.current) {
+        activeInfoWindowRef.current.close();
+      }
+
+      // Open new InfoWindow and set it as active
       infoWindow.open(map, marker);
+      activeInfoWindowRef.current = infoWindow;
     });
 
     greenZoneMarkerRef.current = marker;
@@ -257,7 +271,14 @@ export function useMapActions(): UseMapActionsResult {
     });
 
     marker.addListener('click', () => {
+      // Close previously opened InfoWindow
+      if (activeInfoWindowRef.current) {
+        activeInfoWindowRef.current.close();
+      }
+
+      // Open new InfoWindow and set it as active
       infoWindow.open(map, marker);
+      activeInfoWindowRef.current = infoWindow;
     });
 
     markersRef.current.push(marker);
@@ -364,7 +385,14 @@ export function useMapActions(): UseMapActionsResult {
             });
 
             marker.addListener('click', async () => {
+              // Close previously opened InfoWindow
+              if (activeInfoWindowRef.current) {
+                activeInfoWindowRef.current.close();
+              }
+
+              // Open new InfoWindow and set it as active
               infoWindow.open(map, marker);
+              activeInfoWindowRef.current = infoWindow;
 
               // Fetch full details
               const details = await getPlaceDetails(place.placeId, map);
@@ -588,7 +616,14 @@ export function useMapActions(): UseMapActionsResult {
           });
 
           marker.addListener('click', async () => {
+            // Close previously opened InfoWindow
+            if (activeInfoWindowRef.current) {
+              activeInfoWindowRef.current.close();
+            }
+
+            // Open new InfoWindow and set it as active
             infoWindow.open(map, marker);
+            activeInfoWindowRef.current = infoWindow;
 
             const details = await getPlaceDetails(place.placeId, map);
 
