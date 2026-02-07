@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, MoreVertical, ExternalLink, Copy, LogOut } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/utils/googleMaps';
 import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyles';
 import { PlaceResult } from '@/types/chat';
@@ -24,9 +24,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
   const [streetViewTitle, setStreetViewTitle] = useState('Street View');
   const [streetViewSubtitle, setStreetViewSubtitle] = useState('');
   const [streetViewCoords, setStreetViewCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [isStreetViewMenuOpen, setIsStreetViewMenuOpen] = useState(false);
-  const [copyFeedback, setCopyFeedback] = useState('');
-  const menuRef = useRef<HTMLDivElement>(null);
+
 
   const exitStreetView = useCallback(() => {
     if (!mapInstanceRef.current) return;
@@ -39,23 +37,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${streetViewCoords.lat},${streetViewCoords.lng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || 'Street View')}`;
     window.open(mapsUrl, '_blank', 'noopener,noreferrer');
-    setIsStreetViewMenuOpen(false);
   }, [streetViewCoords, streetViewTitle, streetViewSubtitle]);
-
-  const copyStreetViewCoordinates = useCallback(async () => {
-    if (!streetViewCoords) return;
-
-    const value = `${streetViewCoords.lat.toFixed(6)}, ${streetViewCoords.lng.toFixed(6)}`;
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopyFeedback('Copied');
-    } catch {
-      setCopyFeedback('Copy failed');
-    }
-
-    setIsStreetViewMenuOpen(false);
-    setTimeout(() => setCopyFeedback(''), 1200);
-  }, [streetViewCoords]);
 
   const initMap = useCallback(async () => {
     if (!mapRef.current) return;
@@ -150,8 +132,6 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
           setStreetViewTitle('Street View');
           setStreetViewSubtitle('');
           setStreetViewCoords(null);
-          setIsStreetViewMenuOpen(false);
-          setCopyFeedback('');
         }
       });
 
@@ -174,28 +154,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     return () => clearTimeout(timer);
   }, [initMap]);
 
-  useEffect(() => {
-    if (!isStreetViewMenuOpen) return;
 
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setIsStreetViewMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsStreetViewMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isStreetViewMenuOpen]);
 
   return (
     <motion.div
@@ -247,7 +206,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
           {/* Right side - Location pin button */}
           <button
             onClick={openStreetViewInGoogleMaps}
-            className="flex items-center justify-center w-12 text-[#8ab4f8] hover:bg-white/10 transition-colors border-l border-white/10"
+            className="flex items-center justify-center w-12 text-[#8ab4f8] hover:bg-white/10 transition-colors border-l border-white/10 rounded-r-lg"
             title="Open in Google Maps"
             aria-label="Open in Google Maps"
           >
@@ -255,54 +214,10 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
           </button>
-
-          {/* More options menu */}
-          <div ref={menuRef} className="relative">
-            <button
-              onClick={() => setIsStreetViewMenuOpen((prev) => !prev)}
-              className="flex items-center justify-center w-10 h-full text-white/70 hover:text-white hover:bg-white/10 transition-colors rounded-r-lg"
-              title="Street View options"
-              aria-label="Street View options"
-            >
-              <MoreVertical size={18} />
-            </button>
-
-            {isStreetViewMenuOpen && (
-              <div className="absolute top-full right-0 mt-1 w-52 bg-[#202124] border border-[#3c4043] rounded-lg shadow-2xl overflow-hidden">
-                <button
-                  onClick={openStreetViewInGoogleMaps}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 flex items-center gap-3 transition-colors"
-                >
-                  <ExternalLink size={16} className="text-[#9aa0a6]" />
-                  Open in Google Maps
-                </button>
-                <button
-                  onClick={copyStreetViewCoordinates}
-                  disabled={!streetViewCoords}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 disabled:text-[#5f6368] disabled:hover:bg-transparent flex items-center gap-3 transition-colors"
-                >
-                  <Copy size={16} className="text-[#9aa0a6]" />
-                  {streetViewCoords ? 'Copy coordinates' : 'Coordinates unavailable'}
-                </button>
-                <div className="h-px bg-[#3c4043] mx-2" />
-                <button
-                  onClick={exitStreetView}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#e8eaed] hover:bg-white/10 flex items-center gap-3 transition-colors"
-                >
-                  <LogOut size={16} className="text-[#9aa0a6]" />
-                  Exit Street View
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       )}
 
-      {copyFeedback && isStreetView && (
-        <div className="absolute top-20 left-3 z-[101] bg-[#202124] border border-[#3c4043] rounded-lg px-3 py-2 text-[13px] text-[#e8eaed] shadow-lg">
-          {copyFeedback}
-        </div>
-      )}
+
 
       {/* Error message overlay */}
       {mapError && (
