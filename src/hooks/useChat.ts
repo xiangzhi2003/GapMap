@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ChatMessage, MapAction, ChatContext, ChatApiResponse } from '@/types/chat';
+import { ChatMessage, MapAction, ChatContext } from '@/types/chat';
 
 interface UseChatResult {
   messages: ChatMessage[];

@@ -413,6 +413,7 @@ export function useMapActions(): UseMapActionsResult {
   }, [clearMarkers, clearHeatmap, getPlaceDetails]);
 
   const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
+    void map;
     if (!paginationRef.current || !paginationRef.current.hasNextPage) return;
 
     setIsSearching(true);
