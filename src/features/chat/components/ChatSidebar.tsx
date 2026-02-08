@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Sparkles, Menu, Trash2 } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
-import SearchBar from './SearchBar';
-import { ChatMessage as ChatMessageType } from '@/types/chat';
+import SearchBar from '@/features/map/components/SearchBar';
+import { ChatMessage as ChatMessageType } from '@/shared/types/chat';
 
 interface ChatSidebarProps {
   isOpen: boolean;

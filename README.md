@@ -102,37 +102,66 @@ The AI will respond with:
 
 ## Project Structure
 
-```
-src/
-├── app/
-│   ├── api/chat/          # Gemini chat API endpoint
-│   ├── layout.tsx          # Root layout
-│   └── page.tsx            # Main page
-├── components/
-│   ├── AnalysisCard.tsx    # Floating market analysis popup
-│   ├── ChatSidebar.tsx     # Chat interface
-│   ├── Map.tsx             # Google Maps component
-│   └── ...
-├── hooks/
-│   ├── useChat.ts          # Chat state management
-│   └── useMapActions.ts    # Map action executor (heatmap, pins, etc.)
-├── types/
-│   └── chat.ts             # TypeScript interfaces
-└── utils/
-    ├── geminiChat.ts       # AI chat logic + action extraction
-    └── googleMaps.ts       # Google Maps loader
+Feature-based architecture for scalability and maintainability:
 
 ```
+src/
+├── app/                              # Next.js App Router
+│   ├── api/chat/route.ts             # Gemini AI chat endpoint
+│   ├── layout.tsx                    # Root layout
+│   └── page.tsx                      # Main page (orchestrates features)
+│
+├── features/                         # Feature modules (self-contained)
+│   ├── chat/                         # Chat feature
+│   │   ├── components/               # Chat UI components
+│   │   │   ├── ChatSidebar.tsx       # Chat sidebar with history
+│   │   │   ├── ChatInput.tsx         # Message input with quick actions
+│   │   │   └── ChatMessage.tsx       # Message display with markdown
+│   │   ├── hooks/
+│   │   │   └── useChat.ts            # Chat state & API communication
+│   │   └── index.ts                  # Feature barrel export
+│   │
+│   └── map/                          # Map feature
+│       ├── components/               # Map UI components
+│       │   ├── Map.tsx               # Google Maps with controls
+│       │   └── SearchBar.tsx         # Location search
+│       ├── hooks/
+│       │   └── useMapActions.ts      # Map interactions & markers
+│       └── index.ts                  # Feature barrel export
+│
+└── shared/                           # Shared resources
+    ├── constants/
+    │   └── mapStyles.ts              # Dark map theme
+    ├── types/
+    │   ├── index.ts                  # Global type definitions
+    │   └── chat.ts                   # Chat & map action types
+    └── utils/
+        ├── geminiChat.ts             # AI chat logic
+        ├── googleMaps.ts             # Maps API loader
+        ├── infoWindowRenderer.ts     # Custom info windows
+        ├── markerIcons.ts            # Marker styling
+        └── mockData.ts               # Fallback data
+```
+
+**Architecture Benefits:**
+- 🎯 **Feature Isolation**: Each feature is self-contained with its own components and hooks
+- 🔧 **Easy Maintenance**: Related code is grouped together
+- 📦 **Scalable**: Add new features by creating a new folder in `features/`
+- 🔗 **Clear Dependencies**: Features use shared resources, not each other
+- 🧪 **Testable**: Features can be tested in isolation
 
 ## How It Works
 
 1. **User Query** → Chat input ("Open a cafe in Selangor")
-2. **AI Processing** → Gemini analyzes and returns 3 actions:
-   - `heatmap` - competitor density points
-   - `greenZone` - recommended location pin
-   - `analysisCard` - full zone breakdown
-3. **Map Execution** → All actions render on the map simultaneously
-4. **Visual Output** → Heatmap overlay + gold pin + analysis card popup
+2. **AI Processing** → Gemini 2.5 Flash analyzes intent and extracts:
+   - Search query for Google Places API
+   - Location context and business type
+   - Strategic recommendations
+3. **Map Visualization** → Results displayed with:
+   - Place markers with clustering
+   - Rich info windows with ratings & reviews
+   - Directions and route planning
+4. **AI Response** → Strategic insights and market analysis
 
 ## License
 

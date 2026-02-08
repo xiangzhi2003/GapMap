@@ -1,4 +1,4 @@
-import { PlaceResult } from '@/types/chat';
+import { PlaceResult } from '@/shared/types/chat';
 
 export function renderRichInfoWindow(place: PlaceResult): string {
   const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 300 }) || '';

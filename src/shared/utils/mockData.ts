@@ -1,4 +1,4 @@
-import { PlaceData } from '@/types';
+import { PlaceData } from '@/shared/types';
 
 // Mock places data around SS15 Subang Jaya area for demo/fallback
 export function getMockPlaces(type: string): PlaceData[] {
@@ -138,15 +138,3 @@ function capitalize(str: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
-
-// Sample reviews for Gemini analysis demo
-export const MOCK_REVIEWS = [
-  "Food was cold when it arrived. Waited 45 minutes for service.",
-  "The place is always crowded but quality has dropped significantly.",
-  "Used to be my favorite spot, but staff has become rude lately.",
-  "Overpriced for what you get. Many better options nearby.",
-  "Location is convenient but interior needs renovation badly.",
-  "Good concept but poor execution. Management needs improvement.",
-  "Hygiene standards are questionable. Found hair in my food twice.",
-  "Parking is a nightmare. They really need to address this.",
-];

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
-import { ChatMessage as ChatMessageType } from '@/types/chat';
+import { ChatMessage as ChatMessageType } from '@/shared/types/chat';
 
 interface ChatMessageProps {
   message: ChatMessageType;

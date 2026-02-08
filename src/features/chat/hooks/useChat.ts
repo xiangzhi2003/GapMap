@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ChatMessage, ChatContext, ChatApiResponse } from '@/types/chat';
+import { ChatMessage, ChatContext, ChatApiResponse } from '@/shared/types/chat';
 
 interface UseChatResult {
   messages: ChatMessage[];

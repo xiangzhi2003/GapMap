@@ -2,11 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { Menu } from 'lucide-react';
-import Map from '@/components/Map';
-import ChatSidebar from '@/components/ChatSidebar';
-import { useChat } from '@/hooks/useChat';
-import { useMapActions } from '@/hooks/useMapActions';
-import { ChatContext } from '@/types/chat';
+import { Map, useMapActions } from '@/features/map';
+import { ChatSidebar, useChat } from '@/features/chat';
+import { ChatContext } from '@/shared/types/chat';
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);

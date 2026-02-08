@@ -3,9 +3,9 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
-import { loadGoogleMaps } from '@/utils/googleMaps';
-import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyles';
-import { PlaceResult } from '@/types/chat';
+import { loadGoogleMaps } from '@/shared/utils/googleMaps';
+import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
+import { PlaceResult } from '@/shared/types/chat';
 
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;

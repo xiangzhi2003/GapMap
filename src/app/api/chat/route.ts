@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { chat } from '@/utils/geminiChat';
-import { ChatApiRequest, ChatApiResponse } from '@/types/chat';
+import { chat } from '@/shared/utils/geminiChat';
+import { ChatApiRequest, ChatApiResponse } from '@/shared/types/chat';
 
 export async function POST(request: NextRequest): Promise<NextResponse<ChatApiResponse | { error: string }>> {
   try {

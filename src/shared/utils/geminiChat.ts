@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ChatMessage, ChatContext } from '@/types/chat';
+import { ChatMessage, ChatContext } from '@/shared/types/chat';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 

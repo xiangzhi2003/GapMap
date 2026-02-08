@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { MapAction, SearchActionData, DirectionsActionData, MarkerActionData, ZoomActionData, CenterActionData, HeatmapActionData, GreenZoneActionData, AnalysisCardData, PlaceResult, MultiSearchActionData, ClearTopicActionData } from '@/types/chat';
+import { AnalysisCardData, PlaceResult } from '@/shared/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
-import { renderRichInfoWindow } from '@/utils/infoWindowRenderer';
-import { getCategoryColor, CATEGORY_COLORS } from '@/utils/markerIcons';
+import { renderRichInfoWindow } from '@/shared/utils/infoWindowRenderer';
+import { getCategoryColor } from '@/shared/utils/markerIcons';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
@@ -30,7 +30,7 @@ export function useMapActions(): UseMapActionsResult {
   const [isSearching, setIsSearching] = useState(false);
   const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [analysisCard, setAnalysisCard] = useState<AnalysisCardData | null>(null);
+  const [analysisCard] = useState<AnalysisCardData | null>(null);
   const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
@@ -92,94 +92,6 @@ export function useMapActions(): UseMapActionsResult {
 
   const toggleAnalysisCard = useCallback(() => {
     setIsAnalysisCardVisible((prev) => !prev);
-  }, []);
-
-  const showHeatmap = useCallback((points: { lat: number; lng: number; weight: number; label?: string }[], map: google.maps.Map) => {
-    // Clear existing heatmap
-    if (heatmapRef.current) {
-      heatmapRef.current.setMap(null);
-      heatmapRef.current = null;
-    }
-
-    const weightedLocations: google.maps.visualization.WeightedLocation[] = points.map((p) => ({
-      location: new google.maps.LatLng(p.lat, p.lng),
-      weight: p.weight,
-    }));
-
-    const heatmapLayer = new google.maps.visualization.HeatmapLayer({
-      data: weightedLocations,
-      map,
-      gradient: [
-        'rgba(0, 0, 0, 0)',
-        'rgba(255, 165, 0, 0.6)',
-        'rgba(255, 69, 0, 0.8)',
-        'rgba(220, 0, 0, 1)',
-      ],
-      radius: 80,
-      opacity: 0.6,
-    });
-
-    heatmapRef.current = heatmapLayer;
-
-    // Fit map to show all heatmap points
-    const bounds = new google.maps.LatLngBounds();
-    points.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
-    map.fitBounds(bounds);
-  }, []);
-
-  const showGreenZone = useCallback((lat: number, lng: number, title: string, reason: string, map: google.maps.Map) => {
-    // Remove previous green zone marker if any
-    if (greenZoneMarkerRef.current) {
-      greenZoneMarkerRef.current.setMap(null);
-      greenZoneMarkerRef.current = null;
-    }
-
-    const marker = new google.maps.Marker({
-      position: { lat, lng },
-      map,
-      title,
-      animation: google.maps.Animation.DROP,
-      icon: {
-        path: 'M12 2C6.48 2 2 6.48 2 12c0 5.33 10 10 10 10s10-4.67 10-10c0-5.52-4.48-10-10-10zm0 13.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z',
-        fillColor: '#FFD700',
-        fillOpacity: 1,
-        strokeColor: '#FFA500',
-        strokeWeight: 2,
-        scale: 2.2,
-        anchor: new google.maps.Point(12, 22),
-      },
-    });
-
-    const infoWindow = new google.maps.InfoWindow({
-      content: `
-        <div style="background: #12121a; color: white; padding: 14px; border-radius: 8px; font-family: system-ui; min-width: 200px; border: 1px solid #22c55e;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 18px;">⭐</span>
-            <h3 style="margin: 0; color: #22c55e; font-size: 15px;">${title}</h3>
-          </div>
-          <p style="margin: 0 0 6px; font-size: 11px; color: #22c55e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Green Zone — Opportunity</p>
-          <p style="margin: 0; font-size: 13px; color: #ccc;">${reason}</p>
-        </div>
-      `,
-    });
-
-    marker.addListener('click', () => {
-      // Close previously opened InfoWindow
-      if (activeInfoWindowRef.current) {
-        activeInfoWindowRef.current.close();
-      }
-
-      // Open new InfoWindow and set it as active
-      infoWindow.open(map, marker);
-      activeInfoWindowRef.current = infoWindow;
-    });
-
-    greenZoneMarkerRef.current = marker;
-
-    // Pan map to this location (with slight delay so heatmap fit completes first)
-    setTimeout(() => {
-      map.panTo({ lat, lng });
-    }, 600);
   }, []);
 
   const getPlaceDetails = useCallback(async (
