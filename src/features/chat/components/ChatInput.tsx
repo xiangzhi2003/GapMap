@@ -58,15 +58,16 @@ export default function ChatInput({ onSend, isLoading, placeholder = 'Ask GapMap
       className="p-3 border-t border-[#2a2a3a] bg-[#0a0a0f]"
     >
       {/* Quick Action Buttons */}
-      <div className="flex gap-1.5 mb-2 overflow-x-auto">
+      <div className="flex gap-1.5 mb-2 overflow-x-auto" role="toolbar" aria-label="Quick actions">
         {QUICK_ACTIONS.map((action) => (
           <button
             key={action.label}
             onClick={() => handleQuickAction(action.prompt)}
             disabled={isLoading}
+            aria-label={`${action.label}: ${action.prompt.trim()}`}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all whitespace-nowrap disabled:opacity-50 ${action.color}`}
           >
-            <action.icon size={12} />
+            <action.icon size={12} aria-hidden="true" />
             {action.label}
           </button>
         ))}
@@ -79,6 +80,7 @@ export default function ChatInput({ onSend, isLoading, placeholder = 'Ask GapMap
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          aria-label="Chat message input"
           disabled={isLoading}
           rows={1}
           className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 resize-none outline-none min-h-[24px] max-h-[120px] py-1 px-2"
@@ -86,12 +88,13 @@ export default function ChatInput({ onSend, isLoading, placeholder = 'Ask GapMap
         <button
           onClick={handleSubmit}
           disabled={!message.trim() || isLoading}
+          aria-label={isLoading ? 'Sending message' : 'Send message'}
           className="flex-shrink-0 w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
         >
           {isLoading ? (
-            <Loader2 size={16} className="text-white animate-spin" />
+            <Loader2 size={16} className="text-white animate-spin" aria-hidden="true" />
           ) : (
-            <Send size={16} className="text-white" />
+            <Send size={16} className="text-white" aria-hidden="true" />
           )}
         </button>
       </div>

@@ -6,17 +6,19 @@ import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
 import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
+import { AdvancedRouteResult } from '@/shared/utils/routes';
 
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
   searchResults?: PlaceResult[];
   directionsResult?: google.maps.DirectionsResult | null;
+  routeAnalysis?: AdvancedRouteResult | null;
   hasMoreResults?: boolean;
   onLoadMore?: () => void;
   onStreetViewChange?: (isStreetView: boolean) => void;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
+export default function Map({ onMapReady, searchResults = [], directionsResult, routeAnalysis, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -274,7 +276,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="absolute bottom-4 left-4 bg-[#12121a]/90 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/30 max-w-xs"
+          className="absolute bottom-4 left-4 bg-[#12121a]/90 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/30 max-w-sm"
         >
           <p className="text-xs font-medium text-purple-400 mb-1">Route</p>
           <p className="text-sm text-white">
@@ -283,6 +285,32 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
           <p className="text-xs text-gray-400 mt-1 truncate">
             via {directionsResult.routes[0].summary}
           </p>
+
+          {/* Toll & alternative route info from Routes API */}
+          {routeAnalysis && (
+            <div className="mt-2 pt-2 border-t border-white/10">
+              {routeAnalysis.routes[routeAnalysis.bestRoute]?.hasTolls ? (
+                <p className="text-xs text-yellow-400">
+                  💰 Toll: {routeAnalysis.routes[routeAnalysis.bestRoute].tollInfo}
+                </p>
+              ) : (
+                <p className="text-xs text-green-400">No tolls</p>
+              )}
+              {routeAnalysis.routes.length > 1 && (
+                <div className="mt-1.5 space-y-1">
+                  {routeAnalysis.routes
+                    .filter((_, i) => i !== routeAnalysis.bestRoute)
+                    .slice(0, 2)
+                    .map((alt, i) => (
+                      <p key={i} className="text-xs text-gray-400">
+                        Alt: {alt.summary} — {alt.distance}, {alt.duration}
+                        {alt.hasTolls ? ` (toll: ${alt.tollInfo})` : ' (no toll)'}
+                      </p>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       )}
     </motion.div>

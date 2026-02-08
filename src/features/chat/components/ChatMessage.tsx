@@ -128,10 +128,13 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
+      role="article"
+      aria-label={`${isUser ? 'You' : 'GapMap'} at ${formatTime(message.timestamp)}`}
       className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
     >
       {/* Avatar */}
       <div
+        aria-hidden="true"
         className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
           isUser
             ? 'bg-cyan-500/20 text-cyan-400'
@@ -158,13 +161,15 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               renderMarkdown(message.content)
             )}
           </div>
-          <p
-            className={`text-[10px] mt-1 ${
+          <time
+            dateTime={new Date(message.timestamp).toISOString()}
+            aria-hidden="true"
+            className={`block text-[11px] mt-1 ${
               isUser ? 'text-cyan-400/50' : 'text-gray-500'
             }`}
           >
             {formatTime(message.timestamp)}
-          </p>
+          </time>
         </div>
       </div>
     </motion.div>

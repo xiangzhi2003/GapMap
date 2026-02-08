@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, Menu, Trash2 } from 'lucide-react';
+import { Map, Sparkles, Menu, Trash2, SquarePen } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from '@/features/map/components/SearchBar';
@@ -19,7 +19,9 @@ interface ChatSidebarProps {
   isSearching: boolean;
   recentSearches: string[];
   onClearMap: () => void;
+  onNewChat: () => void;
   hasMarkers: boolean;
+  hasDirections: boolean;
 }
 
 export default function ChatSidebar({
@@ -33,7 +35,9 @@ export default function ChatSidebar({
   isSearching,
   recentSearches,
   onClearMap,
+  onNewChat,
   hasMarkers,
+  hasDirections,
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +56,7 @@ export default function ChatSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
+            aria-hidden="true"
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
           />
           <motion.aside
@@ -59,6 +64,8 @@ export default function ChatSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -320, opacity: 0.8 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            role="complementary"
+            aria-label="GapMap AI Chat"
             className="fixed left-0 top-0 z-50 w-[85vw] sm:w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
           >
           {/* Header */}
@@ -79,12 +86,24 @@ export default function ChatSidebar({
                   <p className="text-xs text-gray-500">Market Gap Intelligence</p>
                 </div>
               </button>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
-              >
-                <Menu size={16} className="text-gray-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && (
+                  <button
+                    onClick={onNewChat}
+                    aria-label="New chat"
+                    className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                  >
+                    <SquarePen size={16} className="text-gray-400" />
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  aria-label="Close chat sidebar"
+                  className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                >
+                  <Menu size={16} className="text-gray-400" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -97,7 +116,7 @@ export default function ChatSidebar({
           />
 
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
+          <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
@@ -135,8 +154,8 @@ export default function ChatSidebar({
                     animate={{ opacity: 1 }}
                     className="flex gap-3"
                   >
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                      <div className="flex gap-1">
+                    <div role="status" aria-label="GapMap is typing a response" className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <div className="flex gap-1" aria-hidden="true">
                         <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -149,8 +168,8 @@ export default function ChatSidebar({
             )}
           </div>
 
-          {/* Clear Map Button - only show when there are markers */}
-          {hasMarkers && (
+          {/* Clear Map Button - show when there are markers or directions */}
+          {(hasMarkers || hasDirections) && (
             <div className="px-4 pb-2">
               <button
                 onClick={onClearMap}

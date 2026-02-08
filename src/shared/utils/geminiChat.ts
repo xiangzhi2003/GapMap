@@ -57,7 +57,7 @@ The system now has access to these additional data sources. Reference them in yo
 - **Distance Matrix**: Calculate real travel times from surrounding areas. Provides accessibility scores.
 - **Elevation/Terrain**: Assess flood risk (critical during Malaysia's monsoon season). Low-lying areas (<10m) have high flood risk.
 - **Air Quality**: Current AQI data. Important for gyms, yoga studios, outdoor cafes, and health businesses. Malaysia experiences seasonal haze.
-- **Routes**: Advanced routing with toll costs and fuel estimates. Important for delivery-based businesses.
+- **Routes**: Advanced routing with toll costs and route alternatives. Important for delivery-based businesses.
 - **Solar Potential**: Energy cost analysis for energy-intensive businesses (restaurants, laundromats).
 - **Address Validation**: Verify Malaysian addresses before analysis.
 - **Time Zone**: Local time awareness for multi-region analysis.

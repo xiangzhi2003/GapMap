@@ -10,13 +10,14 @@ export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const { messages, isLoading, sendMessage } = useChat();
+  const { messages, isLoading, sendMessage, clearMessages } = useChat();
   const {
     searchResults,
     isSearching,
     directionsResult,
     recentSearches,
     hasMoreResults,
+    routeAnalysis,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
@@ -78,6 +79,12 @@ export default function Home() {
     clearDirections();     // Clears directions
   }, [clearSearchResults, clearDirections]);
 
+  const handleNewChat = useCallback(() => {
+    clearMessages();
+    clearSearchResults();
+    clearDirections();
+  }, [clearMessages, clearSearchResults, clearDirections]);
+
   const handleLoadMore = useCallback(async () => {
     if (map) {
       await loadMoreResults(map);
@@ -115,7 +122,9 @@ export default function Home() {
         isSearching={isSearching}
         recentSearches={recentSearches}
         onClearMap={handleClearMap}
+        onNewChat={handleNewChat}
         hasMarkers={searchResults.length > 0}
+        hasDirections={directionsResult !== null}
       />
 
       {/* Map - Full Width */}
@@ -124,6 +133,7 @@ export default function Home() {
           onMapReady={handleMapReady}
           searchResults={searchResults}
           directionsResult={directionsResult}
+          routeAnalysis={routeAnalysis}
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}
