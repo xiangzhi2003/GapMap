@@ -17,7 +17,7 @@ export default function Home() {
     directionsResult,
     recentSearches,
     hasMoreResults,
-    routeAnalysis,
+    selectedRouteIndex,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
@@ -133,7 +133,7 @@ export default function Home() {
           onMapReady={handleMapReady}
           searchResults={searchResults}
           directionsResult={directionsResult}
-          routeAnalysis={routeAnalysis}
+          selectedRouteIndex={selectedRouteIndex}
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}

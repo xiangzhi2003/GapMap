@@ -6,21 +6,20 @@ import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
 import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
-import { AdvancedRouteResult } from '@/shared/utils/routes';
-
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
   searchResults?: PlaceResult[];
   directionsResult?: google.maps.DirectionsResult | null;
-  routeAnalysis?: AdvancedRouteResult | null;
+  selectedRouteIndex?: number;
   hasMoreResults?: boolean;
   onLoadMore?: () => void;
   onStreetViewChange?: (isStreetView: boolean) => void;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, routeAnalysis, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
+export default function Map({ onMapReady, searchResults = [], directionsResult, selectedRouteIndex = 0, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const routeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isStreetView, setIsStreetView] = useState(false);
   const [streetViewTitle, setStreetViewTitle] = useState('Street View');
@@ -156,7 +155,123 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     return () => clearTimeout(timer);
   }, [initMap]);
 
+  // Show route info as an InfoWindow anchored to the route midpoint
+  useEffect(() => {
+    // Clean up previous route info window
+    if (routeInfoWindowRef.current) {
+      routeInfoWindowRef.current.close();
+      routeInfoWindowRef.current = null;
+    }
 
+    const map = mapInstanceRef.current;
+    if (!map || !directionsResult?.routes[selectedRouteIndex]) return;
+
+    const selectedRoute = directionsResult.routes[selectedRouteIndex];
+    const leg = selectedRoute.legs[0];
+    const steps = leg.steps;
+
+    // Find the midpoint of the route by walking halfway through the total distance
+    const totalDistance = leg.distance?.value || 0;
+    const halfDistance = totalDistance / 2;
+    let accumulated = 0;
+    let midpoint: google.maps.LatLng | null = null;
+
+    for (const step of steps) {
+      const stepDist = step.distance?.value || 0;
+      if (accumulated + stepDist >= halfDistance) {
+        // Interpolate within this step
+        const ratio = stepDist > 0 ? (halfDistance - accumulated) / stepDist : 0;
+        const path = step.path;
+        if (path && path.length >= 2) {
+          const segIndex = Math.min(Math.floor(ratio * (path.length - 1)), path.length - 2);
+          const segRatio = (ratio * (path.length - 1)) - segIndex;
+          const p1 = path[segIndex];
+          const p2 = path[segIndex + 1];
+          midpoint = new google.maps.LatLng(
+            p1.lat() + (p2.lat() - p1.lat()) * segRatio,
+            p1.lng() + (p2.lng() - p1.lng()) * segRatio
+          );
+        } else {
+          midpoint = step.start_location;
+        }
+        break;
+      }
+      accumulated += stepDist;
+    }
+
+    if (!midpoint) {
+      midpoint = leg.start_location;
+    }
+
+    // Build the info content
+    const distance = leg.distance?.text || '';
+    const duration = leg.duration?.text || '';
+    const summary = selectedRoute.summary || '';
+    const totalRoutes = directionsResult.routes.length;
+
+    const routeCountHtml = totalRoutes > 1
+      ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:4px;">Route ${selectedRouteIndex + 1} of ${totalRoutes} · click gray routes to switch</div>`
+      : '';
+
+    let altHtml = '';
+    if (totalRoutes > 1) {
+      const alts = directionsResult.routes
+        .filter((_, i) => i !== selectedRouteIndex)
+        .slice(0, 2)
+        .map(alt => {
+          const altLeg = alt.legs[0];
+          return `<div style="color:#9ca3af;font-size:11px;margin-top:2px;">Alt: via ${alt.summary || 'Unknown'} — ${altLeg.distance?.text || ''}, ${altLeg.duration?.text || ''}</div>`;
+        })
+        .join('');
+      altHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);">${alts}</div>`;
+    }
+
+    const content = `
+      <div style="background:#12121a;color:#fff;padding:10px 14px;border-radius:10px;font-family:system-ui,-apple-system,sans-serif;min-width:160px;border:1px solid rgba(168,85,247,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+        ${routeCountHtml}
+        <div style="font-size:11px;font-weight:600;color:#c084fc;margin-bottom:4px;">Route</div>
+        <div style="font-size:14px;font-weight:500;">${distance} · ${duration}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:3px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">via ${summary}</div>
+        ${altHtml}
+      </div>
+    `;
+
+    const infoWindow = new google.maps.InfoWindow({
+      content,
+      position: midpoint,
+      pixelOffset: new google.maps.Size(0, -8),
+      disableAutoPan: true,
+    });
+
+    infoWindow.open(map);
+    routeInfoWindowRef.current = infoWindow;
+
+    // Style the InfoWindow container to remove default white background
+    google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
+      const iwOuter = document.querySelector('.gm-style-iw-a');
+      if (iwOuter) {
+        // Hide the default close button
+        const closeBtn = iwOuter.querySelector('button.gm-ui-hover-effect');
+        if (closeBtn) (closeBtn as HTMLElement).style.display = 'none';
+      }
+      // Remove default white background from info window
+      const iwContainers = document.querySelectorAll('.gm-style-iw-d, .gm-style-iw-c, .gm-style-iw');
+      iwContainers.forEach(el => {
+        (el as HTMLElement).style.background = 'transparent';
+        (el as HTMLElement).style.boxShadow = 'none';
+        (el as HTMLElement).style.padding = '0';
+        (el as HTMLElement).style.overflow = 'visible';
+      });
+      // Hide the arrow/tail
+      const iwTail = document.querySelector('.gm-style-iw-tc');
+      if (iwTail) (iwTail as HTMLElement).style.display = 'none';
+    });
+
+    return () => {
+      infoWindow.close();
+      routeInfoWindowRef.current = null;
+    };
+  }, [directionsResult, selectedRouteIndex]);
 
   return (
     <motion.div
@@ -270,39 +385,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
         </motion.button>
       )}
 
-      {/* Directions summary */}
-      {directionsResult && directionsResult.routes[0] && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="absolute bottom-4 left-4 bg-[#12121a]/90 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/30 max-w-sm"
-        >
-          <p className="text-xs font-medium text-purple-400 mb-1">Route</p>
-          <p className="text-sm text-white">
-            {directionsResult.routes[0].legs[0].distance?.text} · {directionsResult.routes[0].legs[0].duration?.text}
-          </p>
-          <p className="text-xs text-gray-400 mt-1 truncate">
-            via {directionsResult.routes[0].summary}
-          </p>
-
-          {/* Alternative route info from Routes API */}
-          {routeAnalysis && routeAnalysis.routes.length > 1 && (
-            <div className="mt-2 pt-2 border-t border-white/10">
-              <div className="space-y-1">
-                {routeAnalysis.routes
-                  .filter((_, i) => i !== routeAnalysis.bestRoute)
-                  .slice(0, 2)
-                  .map((alt, i) => (
-                    <p key={i} className="text-xs text-gray-400">
-                      Alt: {alt.summary} — {alt.distance}, {alt.duration}
-                    </p>
-                  ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
+      {/* Route info is now shown as a map InfoWindow at the route midpoint */}
     </motion.div>
   );
 }

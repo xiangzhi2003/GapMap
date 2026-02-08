@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { AnalysisCardData, PlaceResult } from '@/shared/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { renderRichInfoWindow } from '@/shared/utils/infoWindowRenderer';
@@ -23,6 +23,7 @@ interface UseMapActionsResult {
   hasMoreResults: boolean;
   accessibilityResult: AccessibilityAnalysis | null;
   routeAnalysis: AdvancedRouteResult | null;
+  selectedRouteIndex: number;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   analyzeAccessibility: (query: string, map: google.maps.Map) => Promise<void>;
@@ -45,6 +46,7 @@ export function useMapActions(): UseMapActionsResult {
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
   const [accessibilityResult, setAccessibilityResult] = useState<AccessibilityAnalysis | null>(null);
   const [routeAnalysis, setRouteAnalysis] = useState<AdvancedRouteResult | null>(null);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const isPaginatingRef = useRef<boolean>(false);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -54,6 +56,8 @@ export function useMapActions(): UseMapActionsResult {
   const paginationRef = useRef<google.maps.places.PlaceSearchPagination | null>(null);
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const searchGenerationRef = useRef<number>(0);
+  const altPolylinesRef = useRef<google.maps.Polyline[]>([]);
+  const altLabelsRef = useRef<google.maps.InfoWindow[]>([]);
 
   const clearMarkers = useCallback(() => {
     // Close active InfoWindow
@@ -90,6 +94,11 @@ export function useMapActions(): UseMapActionsResult {
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    altPolylinesRef.current.forEach(p => p.setMap(null));
+    altPolylinesRef.current = [];
+    altLabelsRef.current.forEach(label => label.close());
+    altLabelsRef.current = [];
+    setSelectedRouteIndex(0);
     setDirectionsResult(null);
     setRouteAnalysis(null);
   }, []);
@@ -433,6 +442,79 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, []);
 
+  const drawAlternativeRoutes = useCallback((
+    map: google.maps.Map,
+    routes: google.maps.DirectionsRoute[],
+    activeIndex: number
+  ) => {
+    // Clear previous alternative polylines and labels
+    altPolylinesRef.current.forEach(p => p.setMap(null));
+    altPolylinesRef.current = [];
+    altLabelsRef.current.forEach(label => label.close());
+    altLabelsRef.current = [];
+
+    if (routes.length <= 1) return;
+
+    routes.forEach((route, index) => {
+      if (index === activeIndex) return;
+
+      const path = route.overview_path;
+      if (!path || path.length === 0) return;
+
+      const polyline = new google.maps.Polyline({
+        path,
+        strokeColor: '#808080',
+        strokeOpacity: 0.5,
+        strokeWeight: 5,
+        clickable: true,
+        zIndex: 1,
+        map,
+      });
+
+      polyline.addListener('click', () => {
+        setSelectedRouteIndex(index);
+      });
+
+      altPolylinesRef.current.push(polyline);
+
+      // Add duration label at route midpoint
+      const leg = route.legs[0];
+      const duration = leg.duration?.text || '';
+      const midIndex = Math.floor(path.length / 2);
+      const midpoint = path[midIndex];
+
+      if (midpoint && duration) {
+        const label = new google.maps.InfoWindow({
+          content: `
+            <div style="background:#404040;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap;cursor:pointer;">
+              ${duration}
+            </div>
+          `,
+          position: midpoint,
+          disableAutoPan: true,
+        });
+
+        label.open(map);
+
+        google.maps.event.addListenerOnce(label, 'domready', () => {
+          const iwContainers = document.querySelectorAll('.gm-style-iw-d, .gm-style-iw-c, .gm-style-iw');
+          iwContainers.forEach(el => {
+            (el as HTMLElement).style.background = 'transparent';
+            (el as HTMLElement).style.boxShadow = 'none';
+            (el as HTMLElement).style.padding = '0';
+            (el as HTMLElement).style.overflow = 'visible';
+          });
+          const iwTail = document.querySelector('.gm-style-iw-tc');
+          if (iwTail) (iwTail as HTMLElement).style.display = 'none';
+          const closeBtn = document.querySelector('.gm-style-iw-a button.gm-ui-hover-effect');
+          if (closeBtn) (closeBtn as HTMLElement).style.display = 'none';
+        });
+
+        altLabelsRef.current.push(label);
+      }
+    });
+  }, []);
+
   const getDirections = useCallback(async (
     origin: string,
     destination: string,
@@ -461,10 +543,16 @@ export function useMapActions(): UseMapActionsResult {
         origin,
         destination,
         travelMode,
+        provideRouteAlternatives: true,
       });
 
       directionsRenderer.setDirections(result);
       setDirectionsResult(result);
+
+      // Draw alternative routes as gray polylines
+      if (result.routes.length > 1) {
+        drawAlternativeRoutes(map, result.routes, 0);
+      }
 
       // Also fetch advanced route info (alternatives) via Routes API
       const routeMode = travelMode === google.maps.TravelMode.WALKING ? 'WALK'
@@ -480,7 +568,18 @@ export function useMapActions(): UseMapActionsResult {
     } finally {
       setIsSearching(false);
     }
-  }, [clearDirections]);
+  }, [clearDirections, drawAlternativeRoutes]);
+
+  // Re-draw alternative polylines when selected route changes
+  useEffect(() => {
+    if (!directionsRendererRef.current || !directionsResult || directionsResult.routes.length <= 1) return;
+
+    const map = directionsRendererRef.current.getMap();
+    if (!map) return;
+
+    directionsRendererRef.current.setRouteIndex(selectedRouteIndex);
+    drawAlternativeRoutes(map as google.maps.Map, directionsResult.routes, selectedRouteIndex);
+  }, [selectedRouteIndex, directionsResult, drawAlternativeRoutes]);
 
   /**
    * Analyze accessibility for a location using Distance Matrix API.
@@ -540,6 +639,7 @@ export function useMapActions(): UseMapActionsResult {
     hasMoreResults: nextPageToken !== null,
     accessibilityResult,
     routeAnalysis,
+    selectedRouteIndex,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
