@@ -203,24 +203,19 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       midpoint = leg.start_location;
     }
 
-    // Build the info content
+    // Build clean Google Maps-style route label
     const distance = leg.distance?.text || '';
     const duration = leg.duration?.text || '';
-    const summary = selectedRoute.summary || '';
-    const totalRoutes = directionsResult.routes.length;
 
-    const headerText = totalRoutes > 1
-      ? `Route ${selectedRouteIndex + 1} of ${totalRoutes}`
-      : 'Route';
+    const carSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" fill="#333"/></svg>';
 
-    const content = `
-      <div style="background:#12121a;color:#fff;padding:8px 12px;border-radius:8px;font-family:system-ui,-apple-system,sans-serif;min-width:140px;max-width:240px;border:1px solid rgba(168,85,247,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.5);line-height:1.3;">
-        <div style="font-size:11px;font-weight:600;color:#c084fc;">${headerText}</div>
-        <div style="font-size:15px;font-weight:600;margin-top:2px;">${distance} · ${duration}</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">via ${summary}</div>
-        ${totalRoutes > 1 ? '<div style="font-size:10px;color:#6b7280;margin-top:4px;">Click gray route to switch</div>' : ''}
+    const content = `<div style="background:#fff;color:#1a1a1a;padding:6px 10px;border-radius:8px;font-family:Roboto,Arial,sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);line-height:1.4;display:inline-flex;align-items:center;gap:6px;">
+      ${carSvg}
+      <div>
+        <div style="font-size:13px;font-weight:700;">${duration}</div>
+        <div style="font-size:11px;color:#70757a;">${distance}</div>
       </div>
-    `;
+    </div>`;
 
     const infoWindow = new google.maps.InfoWindow({
       content,
@@ -232,13 +227,11 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     infoWindow.open(map);
     routeInfoWindowRef.current = infoWindow;
 
-    // Style the InfoWindow container to remove default white background
+    // Remove default InfoWindow chrome (white bg, close button, arrow)
     google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
-      // Hide ALL close buttons on info windows
       document.querySelectorAll('.gm-ui-hover-effect').forEach(btn => {
         (btn as HTMLElement).style.display = 'none';
       });
-      // Remove default white background and padding from info window wrappers
       document.querySelectorAll('.gm-style-iw, .gm-style-iw-c, .gm-style-iw-d').forEach(el => {
         const e = el as HTMLElement;
         e.style.background = 'transparent';
@@ -248,7 +241,6 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
         e.style.maxWidth = 'none';
         e.style.maxHeight = 'none';
       });
-      // Hide the arrow/tail
       document.querySelectorAll('.gm-style-iw-tc, .gm-style-iw-t::after').forEach(el => {
         (el as HTMLElement).style.display = 'none';
       });

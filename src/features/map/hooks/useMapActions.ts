@@ -424,19 +424,24 @@ export function useMapActions(): UseMapActionsResult {
 
       altPolylinesRef.current.push(polyline);
 
-      // Add duration label at route midpoint
+      // Add Google Maps-style label at route midpoint
       const leg = route.legs[0];
       const duration = leg.duration?.text || '';
+      const distance = leg.distance?.text || '';
       const midIndex = Math.floor(path.length / 2);
       const midpoint = path[midIndex];
 
       if (midpoint && duration) {
+        const carSvg = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" fill="#666"/></svg>';
+
         const label = new google.maps.InfoWindow({
-          content: `
-            <div style="background:#404040;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap;cursor:pointer;">
-              ${duration}
+          content: `<div style="background:#fff;color:#1a1a1a;padding:5px 8px;border-radius:8px;font-family:Roboto,Arial,sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);line-height:1.4;display:inline-flex;align-items:center;gap:5px;cursor:pointer;">
+            ${carSvg}
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#70757a;">${duration}</div>
+              <div style="font-size:10px;color:#9aa0a6;">${distance}</div>
             </div>
-          `,
+          </div>`,
           position: midpoint,
           disableAutoPan: true,
         });
@@ -444,17 +449,19 @@ export function useMapActions(): UseMapActionsResult {
         label.open(map);
 
         google.maps.event.addListenerOnce(label, 'domready', () => {
-          const iwContainers = document.querySelectorAll('.gm-style-iw-d, .gm-style-iw-c, .gm-style-iw');
-          iwContainers.forEach(el => {
-            (el as HTMLElement).style.background = 'transparent';
-            (el as HTMLElement).style.boxShadow = 'none';
-            (el as HTMLElement).style.padding = '0';
-            (el as HTMLElement).style.overflow = 'visible';
+          document.querySelectorAll('.gm-ui-hover-effect').forEach(btn => {
+            (btn as HTMLElement).style.display = 'none';
           });
-          const iwTail = document.querySelector('.gm-style-iw-tc');
-          if (iwTail) (iwTail as HTMLElement).style.display = 'none';
-          const closeBtn = document.querySelector('.gm-style-iw-a button.gm-ui-hover-effect');
-          if (closeBtn) (closeBtn as HTMLElement).style.display = 'none';
+          document.querySelectorAll('.gm-style-iw, .gm-style-iw-c, .gm-style-iw-d').forEach(el => {
+            const e = el as HTMLElement;
+            e.style.background = 'transparent';
+            e.style.boxShadow = 'none';
+            e.style.padding = '0';
+            e.style.overflow = 'visible';
+          });
+          document.querySelectorAll('.gm-style-iw-tc').forEach(el => {
+            (el as HTMLElement).style.display = 'none';
+          });
         });
 
         altLabelsRef.current.push(label);
