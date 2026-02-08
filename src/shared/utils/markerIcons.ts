@@ -1,4 +1,4 @@
-export const CATEGORY_COLORS: Record<string, string> = {
+const CATEGORY_COLORS: Record<string, string> = {
   restaurant: '#ef4444',
   cafe: '#f59e0b',
   bar: '#8b5cf6',

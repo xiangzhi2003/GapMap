@@ -209,30 +209,16 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
     const summary = selectedRoute.summary || '';
     const totalRoutes = directionsResult.routes.length;
 
-    const routeCountHtml = totalRoutes > 1
-      ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:4px;">Route ${selectedRouteIndex + 1} of ${totalRoutes} · click gray routes to switch</div>`
-      : '';
-
-    let altHtml = '';
-    if (totalRoutes > 1) {
-      const alts = directionsResult.routes
-        .filter((_, i) => i !== selectedRouteIndex)
-        .slice(0, 2)
-        .map(alt => {
-          const altLeg = alt.legs[0];
-          return `<div style="color:#9ca3af;font-size:11px;margin-top:2px;">Alt: via ${alt.summary || 'Unknown'} — ${altLeg.distance?.text || ''}, ${altLeg.duration?.text || ''}</div>`;
-        })
-        .join('');
-      altHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);">${alts}</div>`;
-    }
+    const headerText = totalRoutes > 1
+      ? `Route ${selectedRouteIndex + 1} of ${totalRoutes}`
+      : 'Route';
 
     const content = `
-      <div style="background:#12121a;color:#fff;padding:10px 14px;border-radius:10px;font-family:system-ui,-apple-system,sans-serif;min-width:160px;border:1px solid rgba(168,85,247,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-        ${routeCountHtml}
-        <div style="font-size:11px;font-weight:600;color:#c084fc;margin-bottom:4px;">Route</div>
-        <div style="font-size:14px;font-weight:500;">${distance} · ${duration}</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:3px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">via ${summary}</div>
-        ${altHtml}
+      <div style="background:#12121a;color:#fff;padding:8px 12px;border-radius:8px;font-family:system-ui,-apple-system,sans-serif;min-width:140px;max-width:240px;border:1px solid rgba(168,85,247,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.5);line-height:1.3;">
+        <div style="font-size:11px;font-weight:600;color:#c084fc;">${headerText}</div>
+        <div style="font-size:15px;font-weight:600;margin-top:2px;">${distance} · ${duration}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">via ${summary}</div>
+        ${totalRoutes > 1 ? '<div style="font-size:10px;color:#6b7280;margin-top:4px;">Click gray route to switch</div>' : ''}
       </div>
     `;
 
@@ -248,23 +234,24 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
 
     // Style the InfoWindow container to remove default white background
     google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
-      const iwOuter = document.querySelector('.gm-style-iw-a');
-      if (iwOuter) {
-        // Hide the default close button
-        const closeBtn = iwOuter.querySelector('button.gm-ui-hover-effect');
-        if (closeBtn) (closeBtn as HTMLElement).style.display = 'none';
-      }
-      // Remove default white background from info window
-      const iwContainers = document.querySelectorAll('.gm-style-iw-d, .gm-style-iw-c, .gm-style-iw');
-      iwContainers.forEach(el => {
-        (el as HTMLElement).style.background = 'transparent';
-        (el as HTMLElement).style.boxShadow = 'none';
-        (el as HTMLElement).style.padding = '0';
-        (el as HTMLElement).style.overflow = 'visible';
+      // Hide ALL close buttons on info windows
+      document.querySelectorAll('.gm-ui-hover-effect').forEach(btn => {
+        (btn as HTMLElement).style.display = 'none';
+      });
+      // Remove default white background and padding from info window wrappers
+      document.querySelectorAll('.gm-style-iw, .gm-style-iw-c, .gm-style-iw-d').forEach(el => {
+        const e = el as HTMLElement;
+        e.style.background = 'transparent';
+        e.style.boxShadow = 'none';
+        e.style.padding = '0';
+        e.style.overflow = 'visible';
+        e.style.maxWidth = 'none';
+        e.style.maxHeight = 'none';
       });
       // Hide the arrow/tail
-      const iwTail = document.querySelector('.gm-style-iw-tc');
-      if (iwTail) (iwTail as HTMLElement).style.display = 'none';
+      document.querySelectorAll('.gm-style-iw-tc, .gm-style-iw-t::after').forEach(el => {
+        (el as HTMLElement).style.display = 'none';
+      });
     });
 
     return () => {

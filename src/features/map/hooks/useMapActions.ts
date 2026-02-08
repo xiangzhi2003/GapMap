@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { AnalysisCardData, PlaceResult } from '@/shared/types/chat';
+import { PlaceResult } from '@/shared/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { renderRichInfoWindow } from '@/shared/utils/infoWindowRenderer';
 import { getCategoryColor } from '@/shared/utils/markerIcons';
@@ -17,21 +17,13 @@ interface UseMapActionsResult {
   isSearching: boolean;
   directionsResult: google.maps.DirectionsResult | null;
   recentSearches: string[];
-  analysisCard: AnalysisCardData | null;
-  isAnalysisCardVisible: boolean;
-  nextPageToken: string | null;
   hasMoreResults: boolean;
-  accessibilityResult: AccessibilityAnalysis | null;
-  routeAnalysis: AdvancedRouteResult | null;
   selectedRouteIndex: number;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   analyzeAccessibility: (query: string, map: google.maps.Map) => Promise<void>;
   clearSearchResults: () => void;
   clearDirections: () => void;
-  toggleAnalysisCard: () => void;
-  addMarker: (lat: number, lng: number, title: string, map: google.maps.Map) => google.maps.Marker;
-  clearMarkers: () => void;
   loadMoreResults: (map: google.maps.Map) => Promise<void>;
 }
 
@@ -40,8 +32,6 @@ export function useMapActions(): UseMapActionsResult {
   const [isSearching, setIsSearching] = useState(false);
   const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [analysisCard] = useState<AnalysisCardData | null>(null);
-  const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
   const [accessibilityResult, setAccessibilityResult] = useState<AccessibilityAnalysis | null>(null);
@@ -111,10 +101,6 @@ export function useMapActions(): UseMapActionsResult {
     clearMarkers();
   }, [clearMarkers]);
 
-
-  const toggleAnalysisCard = useCallback(() => {
-    setIsAnalysisCardVisible((prev) => !prev);
-  }, []);
 
   /**
    * Enrich a PlaceResult with elevation, air quality, and timezone data.
@@ -218,45 +204,6 @@ export function useMapActions(): UseMapActionsResult {
       );
     });
   }, [placeDetailsCache, enrichPlaceWithEnvironmentData]);
-
-  const addMarker = useCallback((lat: number, lng: number, title: string, map: google.maps.Map): google.maps.Marker => {
-    const marker = new google.maps.Marker({
-      position: { lat, lng },
-      map,
-      title,
-      animation: google.maps.Animation.DROP,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#00f0ff',
-        fillOpacity: 0.9,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-      },
-    });
-
-    const infoWindow = new google.maps.InfoWindow({
-      content: `
-        <div style="background: #12121a; color: white; padding: 12px; border-radius: 8px; font-family: system-ui; min-width: 150px;">
-          <h3 style="margin: 0; color: #00f0ff; font-size: 14px;">${title}</h3>
-        </div>
-      `,
-    });
-
-    marker.addListener('click', () => {
-      // Close previously opened InfoWindow
-      if (activeInfoWindowRef.current) {
-        activeInfoWindowRef.current.close();
-      }
-
-      // Open new InfoWindow and set it as active
-      infoWindow.open(map, marker);
-      activeInfoWindowRef.current = infoWindow;
-    });
-
-    markersRef.current.push(marker);
-    return marker;
-  }, []);
 
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
     setIsSearching(true);
@@ -633,21 +580,13 @@ export function useMapActions(): UseMapActionsResult {
     isSearching,
     directionsResult,
     recentSearches,
-    analysisCard,
-    isAnalysisCardVisible,
-    nextPageToken,
     hasMoreResults: nextPageToken !== null,
-    accessibilityResult,
-    routeAnalysis,
     selectedRouteIndex,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
     clearSearchResults,
     clearDirections,
-    toggleAnalysisCard,
-    addMarker,
-    clearMarkers,
     loadMoreResults,
   };
 }

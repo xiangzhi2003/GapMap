@@ -4,12 +4,12 @@
  * Useful for multi-country analysis and accurate operating hours display.
  */
 
-export interface TimezoneData {
-  timeZoneId: string; // e.g. "Asia/Kuala_Lumpur"
-  timeZoneName: string; // e.g. "Malaysia Time"
-  rawOffset: number; // seconds offset from UTC
-  dstOffset: number; // daylight saving offset in seconds
-  localTime: string; // formatted local time string
+interface TimezoneData {
+  timeZoneId: string;
+  timeZoneName: string;
+  rawOffset: number;
+  dstOffset: number;
+  localTime: string;
 }
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -71,21 +71,5 @@ export async function getTimezone(
   } catch (error) {
     console.error('Time Zone API error:', error);
     return null;
-  }
-}
-
-/**
- * Format a time in a specific timezone for display.
- */
-export function formatTimeInZone(date: Date, timeZoneId: string): string {
-  try {
-    return date.toLocaleString('en-US', {
-      timeZone: timeZoneId,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return date.toLocaleTimeString();
   }
 }
