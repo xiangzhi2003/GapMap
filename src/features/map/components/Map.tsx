@@ -286,29 +286,19 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
             via {directionsResult.routes[0].summary}
           </p>
 
-          {/* Toll & alternative route info from Routes API */}
-          {routeAnalysis && (
+          {/* Alternative route info from Routes API */}
+          {routeAnalysis && routeAnalysis.routes.length > 1 && (
             <div className="mt-2 pt-2 border-t border-white/10">
-              {routeAnalysis.routes[routeAnalysis.bestRoute]?.hasTolls ? (
-                <p className="text-xs text-yellow-400">
-                  💰 Toll: {routeAnalysis.routes[routeAnalysis.bestRoute].tollInfo}
-                </p>
-              ) : (
-                <p className="text-xs text-green-400">No tolls</p>
-              )}
-              {routeAnalysis.routes.length > 1 && (
-                <div className="mt-1.5 space-y-1">
-                  {routeAnalysis.routes
-                    .filter((_, i) => i !== routeAnalysis.bestRoute)
-                    .slice(0, 2)
-                    .map((alt, i) => (
-                      <p key={i} className="text-xs text-gray-400">
-                        Alt: {alt.summary} — {alt.distance}, {alt.duration}
-                        {alt.hasTolls ? ` (toll: ${alt.tollInfo})` : ' (no toll)'}
-                      </p>
-                    ))}
-                </div>
-              )}
+              <div className="space-y-1">
+                {routeAnalysis.routes
+                  .filter((_, i) => i !== routeAnalysis.bestRoute)
+                  .slice(0, 2)
+                  .map((alt, i) => (
+                    <p key={i} className="text-xs text-gray-400">
+                      Alt: {alt.summary} — {alt.distance}, {alt.duration}
+                    </p>
+                  ))}
+              </div>
             </div>
           )}
         </motion.div>

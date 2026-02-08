@@ -466,7 +466,7 @@ export function useMapActions(): UseMapActionsResult {
       directionsRenderer.setDirections(result);
       setDirectionsResult(result);
 
-      // Also fetch advanced route info (toll costs, alternatives) via Routes API
+      // Also fetch advanced route info (alternatives) via Routes API
       const routeMode = travelMode === google.maps.TravelMode.WALKING ? 'WALK'
         : travelMode === google.maps.TravelMode.BICYCLING ? 'BICYCLE'
         : travelMode === google.maps.TravelMode.TRANSIT ? 'TRANSIT'

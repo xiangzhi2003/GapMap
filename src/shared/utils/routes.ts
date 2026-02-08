@@ -1,6 +1,6 @@
 /**
  * Routes API Utility
- * Enhanced routing with toll costs, fuel estimates, and multiple route alternatives.
+ * Enhanced routing with fuel estimates and multiple route alternatives.
  * Supplements the existing Directions API with richer data.
  */
 
@@ -10,8 +10,6 @@ export interface RouteOption {
   duration: string;
   distanceMeters: number;
   durationSeconds: number;
-  tollInfo?: string;
-  hasTolls: boolean;
   warnings: string[];
 }
 
@@ -25,7 +23,7 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 /**
  * Get advanced route information using the Routes API (REST).
- * Provides toll information and multiple alternatives that the JS Directions API doesn't expose.
+ * Provides multiple alternatives that the JS Directions API doesn't expose.
  */
 export async function getAdvancedRoutes(
   origin: string,
@@ -42,7 +40,7 @@ export async function getAdvancedRoutes(
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': API_KEY,
-          'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration,routes.polyline,routes.description,routes.warnings,routes.travelAdvisory,routes.localizedValues',
+          'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration,routes.polyline,routes.description,routes.warnings,routes.localizedValues',
         },
         body: JSON.stringify({
           origin: { address: origin },
@@ -50,7 +48,6 @@ export async function getAdvancedRoutes(
           travelMode,
           computeAlternativeRoutes: true,
           routeModifiers: {
-            avoidTolls: false,
             avoidHighways: false,
           },
           languageCode: 'en',
@@ -76,14 +73,9 @@ export async function getAdvancedRoutes(
         distance?: { text?: string };
         duration?: { text?: string };
       };
-      travelAdvisory?: {
-        tollInfo?: { estimatedPrice?: { currencyCode?: string; units?: string }[] };
-      };
       warnings?: string[];
     }) => {
       const durationSeconds = parseInt(route.duration?.replace('s', '') || '0');
-      const hasTolls = !!route.travelAdvisory?.tollInfo;
-      const tollPrice = route.travelAdvisory?.tollInfo?.estimatedPrice?.[0];
 
       return {
         summary: route.description || 'Route',
@@ -91,8 +83,6 @@ export async function getAdvancedRoutes(
         duration: route.localizedValues?.duration?.text || `${Math.round(durationSeconds / 60)} min`,
         distanceMeters: route.distanceMeters || 0,
         durationSeconds,
-        tollInfo: tollPrice ? `${tollPrice.currencyCode} ${tollPrice.units}` : undefined,
-        hasTolls,
         warnings: route.warnings || [],
       };
     });
@@ -116,20 +106,11 @@ export async function getAdvancedRoutes(
 function generateRouteAnalysis(routes: RouteOption[], bestIdx: number): string {
   if (routes.length === 1) {
     const r = routes[0];
-    return `Route via ${r.summary}: ${r.distance}, ${r.duration}${r.hasTolls ? ` (toll: ${r.tollInfo})` : ' (no tolls)'}.`;
+    return `Route via ${r.summary}: ${r.distance}, ${r.duration}.`;
   }
 
   const best = routes[bestIdx];
   const parts = [`Fastest route: ${best.summary} (${best.distance}, ${best.duration})`];
-
-  if (best.hasTolls) {
-    parts.push(`Toll cost: ${best.tollInfo}`);
-  }
-
-  const tollFree = routes.find((r) => !r.hasTolls);
-  if (tollFree && tollFree !== best) {
-    parts.push(`Toll-free alternative: ${tollFree.summary} (${tollFree.distance}, ${tollFree.duration})`);
-  }
 
   return parts.join('. ') + '.';
 }
