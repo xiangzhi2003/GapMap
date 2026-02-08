@@ -30,8 +30,10 @@ export async function loadGoogleMaps(): Promise<void> {
     await importLibrary('maps');
     await importLibrary('places');
     await importLibrary('visualization');
+    await importLibrary('routes');
+    await importLibrary('geocoding');
     isLoaded = true;
-    console.log('✅ Google Maps loaded successfully');
+    console.log('✅ Google Maps loaded successfully (maps, places, visualization, routes, geocoding)');
   } catch (error) {
     console.error('❌ Failed to load Google Maps:', error);
     throw error;

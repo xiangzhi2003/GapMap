@@ -7,7 +7,7 @@ interface UseChatResult {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'directions' | 'analyze' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined>;
+  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined>;
   clearMessages: () => void;
 }
 
@@ -16,7 +16,7 @@ export function useChat(): UseChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'directions' | 'analyze' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined> => {
+  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined> => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',

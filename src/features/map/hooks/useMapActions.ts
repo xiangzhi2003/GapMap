@@ -5,6 +5,12 @@ import { AnalysisCardData, PlaceResult } from '@/shared/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { renderRichInfoWindow } from '@/shared/utils/infoWindowRenderer';
 import { getCategoryColor } from '@/shared/utils/markerIcons';
+import { getElevation } from '@/shared/utils/elevation';
+import { getAirQuality } from '@/shared/utils/airQuality';
+import { getTimezone } from '@/shared/utils/timezone';
+import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/utils/distanceMatrix';
+import { reverseGeocode } from '@/shared/utils/geocoding';
+import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
@@ -15,8 +21,11 @@ interface UseMapActionsResult {
   isAnalysisCardVisible: boolean;
   nextPageToken: string | null;
   hasMoreResults: boolean;
+  accessibilityResult: AccessibilityAnalysis | null;
+  routeAnalysis: AdvancedRouteResult | null;
   searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
+  analyzeAccessibility: (query: string, map: google.maps.Map) => Promise<void>;
   clearSearchResults: () => void;
   clearDirections: () => void;
   toggleAnalysisCard: () => void;
@@ -34,6 +43,8 @@ export function useMapActions(): UseMapActionsResult {
   const [isAnalysisCardVisible, setIsAnalysisCardVisible] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
+  const [accessibilityResult, setAccessibilityResult] = useState<AccessibilityAnalysis | null>(null);
+  const [routeAnalysis, setRouteAnalysis] = useState<AdvancedRouteResult | null>(null);
   const isPaginatingRef = useRef<boolean>(false);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -80,18 +91,55 @@ export function useMapActions(): UseMapActionsResult {
       directionsRendererRef.current = null;
     }
     setDirectionsResult(null);
+    setRouteAnalysis(null);
   }, []);
 
   const clearSearchResults = useCallback(() => {
     setSearchResults([]);
     setNextPageToken(null);
     paginationRef.current = null;
+    setAccessibilityResult(null);
     clearMarkers();
   }, [clearMarkers]);
 
 
   const toggleAnalysisCard = useCallback(() => {
     setIsAnalysisCardVisible((prev) => !prev);
+  }, []);
+
+  /**
+   * Enrich a PlaceResult with elevation, air quality, and timezone data.
+   * Called when a user clicks a marker to view details.
+   */
+  const enrichPlaceWithEnvironmentData = useCallback(async (
+    details: PlaceResult
+  ): Promise<PlaceResult> => {
+    const { lat, lng } = details.location;
+
+    // Fetch environment data in parallel (non-blocking, best-effort)
+    const [elevation, airQuality, timezone] = await Promise.allSettled([
+      getElevation(lat, lng),
+      getAirQuality(lat, lng),
+      getTimezone(lat, lng),
+    ]);
+
+    const enriched = { ...details };
+
+    if (elevation.status === 'fulfilled' && elevation.value !== null) {
+      enriched.elevation = elevation.value;
+    }
+
+    if (airQuality.status === 'fulfilled' && airQuality.value) {
+      enriched.airQualityIndex = airQuality.value.aqi;
+      enriched.airQualityCategory = airQuality.value.category;
+    }
+
+    if (timezone.status === 'fulfilled' && timezone.value) {
+      enriched.timezone = timezone.value.timeZoneId;
+      enriched.localTime = timezone.value.localTime;
+    }
+
+    return enriched;
   }, []);
 
   const getPlaceDetails = useCallback(async (
@@ -113,10 +161,13 @@ export function useMapActions(): UseMapActionsResult {
             'name', 'formatted_address', 'geometry', 'rating',
             'user_ratings_total', 'photos', 'types', 'opening_hours',
             'website', 'formatted_phone_number', 'price_level',
-            'reviews', 'business_status', 'url', 'place_id'
+            'reviews', 'business_status', 'url', 'place_id',
+            // Places API (New) fields — available when New API is enabled
+            'delivery', 'takeout', 'dine_in',
+            'wheelchair_accessible_entrance',
           ]
         },
-        (place, status) => {
+        async (place, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && place) {
             const details: PlaceResult = {
               placeId: place.place_id!,
@@ -138,18 +189,26 @@ export function useMapActions(): UseMapActionsResult {
               reviews: place.reviews?.slice(0, 3), // First 3 reviews only
               businessStatus: place.business_status,
               url: place.url,
+              // Places API (New) enhanced fields
+              delivery: (place as Record<string, unknown>).delivery as boolean | undefined,
+              takeout: (place as Record<string, unknown>).takeout as boolean | undefined,
+              dineIn: (place as Record<string, unknown>).dine_in as boolean | undefined,
+              wheelchairAccessible: (place as Record<string, unknown>).wheelchair_accessible_entrance as boolean | undefined,
             };
 
-            // Cache it
-            setPlaceDetailsCache(prev => ({ ...prev, [placeId]: details }));
-            resolve(details);
+            // Enrich with environment data (elevation, AQI, timezone)
+            const enriched = await enrichPlaceWithEnvironmentData(details);
+
+            // Cache the enriched result
+            setPlaceDetailsCache(prev => ({ ...prev, [placeId]: enriched }));
+            resolve(enriched);
           } else {
             resolve(null);
           }
         }
       );
     });
-  }, [placeDetailsCache]);
+  }, [placeDetailsCache, enrichPlaceWithEnvironmentData]);
 
   const addMarker = useCallback((lat: number, lng: number, title: string, map: google.maps.Map): google.maps.Marker => {
     const marker = new google.maps.Marker({
@@ -304,7 +363,7 @@ export function useMapActions(): UseMapActionsResult {
               infoWindow.open(map, marker);
               activeInfoWindowRef.current = infoWindow;
 
-              // Fetch full details
+              // Fetch full details (now enriched with elevation, AQI, timezone)
               const details = await getPlaceDetails(place.placeId, map);
 
               if (details) {
@@ -384,6 +443,7 @@ export function useMapActions(): UseMapActionsResult {
     clearDirections();
 
     try {
+      // Use standard Directions API for map rendering
       const directionsService = new google.maps.DirectionsService();
       const directionsRenderer = new google.maps.DirectionsRenderer({
         map,
@@ -405,12 +465,68 @@ export function useMapActions(): UseMapActionsResult {
 
       directionsRenderer.setDirections(result);
       setDirectionsResult(result);
+
+      // Also fetch advanced route info (toll costs, alternatives) via Routes API
+      const routeMode = travelMode === google.maps.TravelMode.WALKING ? 'WALK'
+        : travelMode === google.maps.TravelMode.BICYCLING ? 'BICYCLE'
+        : travelMode === google.maps.TravelMode.TRANSIT ? 'TRANSIT'
+        : 'DRIVE';
+      const advancedRoutes = await getAdvancedRoutes(origin, destination, routeMode);
+      if (advancedRoutes) {
+        setRouteAnalysis(advancedRoutes);
+      }
     } catch (error) {
       console.error('Directions error:', error);
     } finally {
       setIsSearching(false);
     }
   }, [clearDirections]);
+
+  /**
+   * Analyze accessibility for a location using Distance Matrix API.
+   * Searches for the query first to find the target location, then calculates
+   * travel times from surrounding areas.
+   */
+  const analyzeAccessibility = useCallback(async (
+    query: string,
+    map: google.maps.Map
+  ): Promise<void> => {
+    setIsSearching(true);
+    setAccessibilityResult(null);
+
+    try {
+      // First, search for the place to get coordinates
+      await searchPlaces(query, map);
+
+      // Wait briefly for search results to populate
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Get the center of the map (which was fitted to search results)
+      const center = map.getCenter();
+      if (!center) {
+        setIsSearching(false);
+        return;
+      }
+
+      const targetLat = center.lat();
+      const targetLng = center.lng();
+
+      // Get a readable address for the target
+      const address = await reverseGeocode(targetLat, targetLng);
+
+      // Calculate accessibility from surrounding areas
+      const analysis = await calculateAccessibility(
+        { lat: targetLat, lng: targetLng },
+        address || query
+      );
+
+      setAccessibilityResult(analysis);
+    } catch (error) {
+      console.error('Accessibility analysis error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchPlaces]);
 
 
   return {
@@ -422,8 +538,11 @@ export function useMapActions(): UseMapActionsResult {
     isAnalysisCardVisible,
     nextPageToken,
     hasMoreResults: nextPageToken !== null,
+    accessibilityResult,
+    routeAnalysis,
     searchPlaces,
     getDirections,
+    analyzeAccessibility,
     clearSearchResults,
     clearDirections,
     toggleAnalysisCard,

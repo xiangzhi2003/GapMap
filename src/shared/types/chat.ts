@@ -86,7 +86,7 @@ export interface ChatApiRequest {
 }
 
 export interface ChatApiResponse {
-  intent: 'search' | 'directions' | 'analyze' | 'chat';
+  intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat';
   query: string | null;
   directions: { origin: string; destination: string } | null;
   reply: string;
@@ -103,7 +103,7 @@ export interface PlaceResult {
   types?: string[];
   openNow?: boolean;
   priceLevel?: number;
-  // NEW FIELDS for rich InfoWindows:
+  // Rich InfoWindow fields:
   website?: string;
   phoneNumber?: string;
   openingHours?: google.maps.places.PlaceOpeningHours;
@@ -111,4 +111,18 @@ export interface PlaceResult {
   businessStatus?: string;
   url?: string;  // Google Maps link
   category?: string;  // For multi-category searches
+  // Enhanced Places API (New) fields:
+  delivery?: boolean;
+  takeout?: boolean;
+  dineIn?: boolean;
+  wheelchairAccessible?: boolean;
+  outdoorSeating?: boolean;
+  parkingOptions?: string[];
+  paymentOptions?: string[];
+  // Elevation & Environment enrichment:
+  elevation?: number;
+  airQualityIndex?: number;
+  airQualityCategory?: string;
+  timezone?: string;
+  localTime?: string;
 }

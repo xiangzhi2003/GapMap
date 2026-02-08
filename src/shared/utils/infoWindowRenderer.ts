@@ -10,7 +10,6 @@ export function renderRichInfoWindow(place: PlaceResult): string {
     : '';
 
   // PlaceOpeningHours has periods, not weekdayDescriptions
-  // We need to format the opening hours differently
   const hours = place.openingHours?.periods?.map((period: google.maps.places.PlaceOpeningHoursPeriod) => {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const open = period.open;
@@ -30,6 +29,12 @@ export function renderRichInfoWindow(place: PlaceResult): string {
     </div>
   `).join('') || '';
 
+  // Build service badges from enhanced Places API (New) data
+  const serviceBadges = buildServiceBadges(place);
+
+  // Build environment badges (elevation, air quality, timezone)
+  const environmentBadges = buildEnvironmentBadges(place);
+
   return `
     <div style="background: #12121a; color: white; padding: 0; border-radius: 8px; font-family: system-ui; min-width: 300px; max-width: 400px; overflow: hidden;">
       ${photoUrl ? `<img src="${photoUrl}" style="width: 100%; height: 180px; object-fit: cover;">` : ''}
@@ -47,7 +52,11 @@ export function renderRichInfoWindow(place: PlaceResult): string {
 
         ${openNowText ? `<div style="margin-bottom: 8px; font-size: 13px;">${openNowText}</div>` : ''}
 
+        ${serviceBadges ? `<div style="margin-bottom: 10px;">${serviceBadges}</div>` : ''}
+
         <p style="margin: 8px 0; font-size: 12px; color: #aaa;">${place.address}</p>
+
+        ${environmentBadges ? `<div style="margin-bottom: 10px;">${environmentBadges}</div>` : ''}
 
         ${place.phoneNumber ? `
           <div style="margin: 8px 0;">
@@ -91,4 +100,57 @@ export function renderRichInfoWindow(place: PlaceResult): string {
       </div>
     </div>
   `;
+}
+
+/**
+ * Build service badges from Places API (New) enhanced fields.
+ * Shows delivery, takeout, dine-in, outdoor seating, wheelchair access, parking.
+ */
+function buildServiceBadges(place: PlaceResult): string {
+  const badges: string[] = [];
+
+  const badgeStyle = (color: string) =>
+    `display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin: 2px; border: 1px solid ${color}33; color: ${color}; background: ${color}15;`;
+
+  if (place.dineIn) badges.push(`<span style="${badgeStyle('#22c55e')}">🍽️ Dine-in</span>`);
+  if (place.takeout) badges.push(`<span style="${badgeStyle('#f59e0b')}">📦 Takeout</span>`);
+  if (place.delivery) badges.push(`<span style="${badgeStyle('#3b82f6')}">🚚 Delivery</span>`);
+  if (place.outdoorSeating) badges.push(`<span style="${badgeStyle('#06b6d4')}">☀️ Outdoor</span>`);
+  if (place.wheelchairAccessible) badges.push(`<span style="${badgeStyle('#8b5cf6')}">♿ Accessible</span>`);
+  if (place.parkingOptions && place.parkingOptions.length > 0) {
+    badges.push(`<span style="${badgeStyle('#64748b')}">🅿️ Parking</span>`);
+  }
+
+  return badges.length > 0
+    ? `<div style="display: flex; flex-wrap: wrap; gap: 2px;">${badges.join('')}</div>`
+    : '';
+}
+
+/**
+ * Build environment badges from elevation, air quality, and timezone data.
+ */
+function buildEnvironmentBadges(place: PlaceResult): string {
+  const badges: string[] = [];
+
+  const badgeStyle = (color: string) =>
+    `display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin: 2px; border: 1px solid ${color}33; color: ${color}; background: ${color}15;`;
+
+  if (place.elevation !== undefined) {
+    const elevColor = place.elevation < 10 ? '#ef4444' : place.elevation < 30 ? '#f59e0b' : '#22c55e';
+    const riskLabel = place.elevation < 10 ? 'Flood Risk' : place.elevation < 30 ? 'Low Area' : '';
+    badges.push(`<span style="${badgeStyle(elevColor)}">⛰️ ${place.elevation.toFixed(0)}m${riskLabel ? ` - ${riskLabel}` : ''}</span>`);
+  }
+
+  if (place.airQualityIndex !== undefined && place.airQualityCategory) {
+    const aqiColor = place.airQualityIndex <= 50 ? '#22c55e' : place.airQualityIndex <= 100 ? '#eab308' : '#ef4444';
+    badges.push(`<span style="${badgeStyle(aqiColor)}">🌬️ AQI ${place.airQualityIndex} - ${place.airQualityCategory}</span>`);
+  }
+
+  if (place.localTime && place.timezone) {
+    badges.push(`<span style="${badgeStyle('#64748b')}">🕐 ${place.localTime} (${place.timezone})</span>`);
+  }
+
+  return badges.length > 0
+    ? `<div style="display: flex; flex-wrap: wrap; gap: 2px;">${badges.join('')}</div>`
+    : '';
 }

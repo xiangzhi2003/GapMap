@@ -19,6 +19,7 @@ export default function Home() {
     hasMoreResults,
     searchPlaces,
     getDirections,
+    analyzeAccessibility,
     clearSearchResults,
     clearDirections,
     loadMoreResults,
@@ -51,10 +52,14 @@ export default function Home() {
         clearSearchResults();
         clearDirections();
         await getDirections(result.directions.origin, result.directions.destination, map);
+      } else if (result.intent === 'accessibility' && result.query) {
+        clearSearchResults();
+        clearDirections();
+        await analyzeAccessibility(result.query, map);
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {
