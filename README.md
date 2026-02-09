@@ -4,12 +4,13 @@ AI-powered location strategy tool that helps entrepreneurs identify market gaps 
 
 ## Features
 
-- 🗺️ **Interactive Google Maps** with full controls (satellite, street view, terrain)
+- 🗺️ **Interactive Google Maps** with clean white theme and full controls (roadmap, satellite, street view, terrain)
+- 🎨 **Adaptive Map Styling** - Automatically switches between light roadmap and satellite-optimized themes
 - 🤖 **AI-Powered Analysis** via Gemini 2.5 Flash for intelligent location recommendations
 - 🔥 **Competitor Heatmap** visualization showing market saturation
 - 📍 **Green Zone Recommendations** highlighting low-competition opportunities
 - 📊 **Analysis Cards** with Red/Orange/Green zone breakdowns and strategic advice
-- 💬 **Conversational Interface** for natural business location queries
+- 💬 **Conversational Interface** with quick action buttons (Find, Directions, Analyze)
 
 ## Tech Stack
 
@@ -131,7 +132,7 @@ src/
 │
 └── shared/                           # Shared resources
     ├── constants/
-    │   └── mapStyles.ts              # Dark map theme
+    │   └── mapStyles.ts              # Light roadmap & satellite map themes
     ├── types/
     │   ├── index.ts                  # Global type definitions
     │   └── chat.ts                   # Chat & map action types
@@ -149,6 +150,21 @@ src/
 - 📦 **Scalable**: Add new features by creating a new folder in `features/`
 - 🔗 **Clear Dependencies**: Features use shared resources, not each other
 - 🧪 **Testable**: Features can be tested in isolation
+
+## Map Features
+
+### Adaptive Styling
+The map automatically adjusts its styling based on the selected view type:
+
+- **Roadmap View**: Clean white theme with light gray backgrounds, blue water, and green parks - matching Google Maps' signature style
+- **Satellite/Hybrid View**: White text with dark strokes for optimal readability against satellite imagery
+- **Automatic Switching**: Styles update instantly when changing map types
+
+### Quick Actions
+Three convenient buttons for common tasks:
+- 🔍 **Find** - Search for places and businesses
+- 🧭 **Directions** - Get route planning and navigation
+- 📊 **Analyze** - Market analysis for business locations
 
 ## How It Works
 
