@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
-import { DARK_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
+import { LIGHT_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
@@ -50,7 +50,7 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       const map = new google.maps.Map(mapRef.current, {
         center: DEFAULT_CENTER,
         zoom: DEFAULT_ZOOM,
-        styles: DARK_MAP_STYLES,
+        styles: LIGHT_MAP_STYLES,
         // Enable all standard Google Maps controls
         disableDefaultUI: false,
         zoomControl: true,
