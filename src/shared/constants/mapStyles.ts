@@ -184,6 +184,48 @@ export const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   },
 ];
 
+// Satellite map style - optimized for satellite/hybrid views
+export const SATELLITE_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  {
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#000000' }, { weight: 3 }],
+  },
+  {
+    featureType: 'administrative.locality',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'transit.station',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }],
+  },
+];
+
 // World view - centered on Asia
 export const DEFAULT_CENTER = { lat: 20, lng: 100 };
 export const DEFAULT_ZOOM = 3;

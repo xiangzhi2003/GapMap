@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
-import { LIGHT_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
+import { LIGHT_MAP_STYLES, SATELLITE_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
@@ -83,6 +83,16 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       });
 
       mapInstanceRef.current = map;
+
+      // Listen for map type changes and apply appropriate styles
+      map.addListener('maptypeid_changed', () => {
+        const mapType = map.getMapTypeId();
+        if (mapType === 'satellite' || mapType === 'hybrid') {
+          map.setOptions({ styles: SATELLITE_MAP_STYLES });
+        } else {
+          map.setOptions({ styles: LIGHT_MAP_STYLES });
+        }
+      });
 
       // Configure Street View controls position
       const streetView = map.getStreetView();
