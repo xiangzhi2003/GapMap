@@ -12,6 +12,11 @@ export const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
     stylers: [{ color: '#746855' }],
   },
   {
+    featureType: 'administrative',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#1a1a25' }],
+  },
+  {
     featureType: 'administrative.locality',
     elementType: 'labels.text.fill',
     stylers: [{ color: '#00f0ff' }],
