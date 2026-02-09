@@ -9,7 +9,7 @@ import { getElevation } from '@/shared/utils/elevation';
 import { getAirQuality } from '@/shared/utils/airQuality';
 import { getTimezone } from '@/shared/utils/timezone';
 import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/utils/distanceMatrix';
-import { reverseGeocode } from '@/shared/utils/geocoding';
+import { reverseGeocode, forwardGeocode, extractLocationFromQuery } from '@/shared/utils/geocoding';
 import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
 
 interface UseMapActionsResult {
@@ -228,11 +228,33 @@ export function useMapActions(): UseMapActionsResult {
 
       const service = new google.maps.places.PlacesService(map);
 
-      // First try text search
+      // Extract location from query for smart filtering
+      const targetLocation = extractLocationFromQuery(query);
+      let locationBounds: google.maps.LatLngBounds | undefined;
+      let targetLocationName: string | null = null;
+
+      // If a specific location is mentioned, geocode it to get precise bounds
+      if (targetLocation) {
+        const geocodeResult = await forwardGeocode(targetLocation);
+        if (geocodeResult?.geometry?.viewport) {
+          locationBounds = geocodeResult.geometry.viewport;
+          // Extract the locality/sublocality for filtering
+          const locality = geocodeResult.address_components?.find(c =>
+            c.types.includes('locality') || c.types.includes('sublocality')
+          );
+          targetLocationName = locality?.long_name?.toLowerCase() || targetLocation.toLowerCase();
+        }
+      }
+
+      // Build search request with location bias
       const request: google.maps.places.TextSearchRequest = {
         query,
-        location: map.getCenter(),
-        radius: 50000, // 50km radius
+        ...(locationBounds ? {
+          bounds: locationBounds,
+        } : {
+          location: map.getCenter(),
+          radius: 50000, // 50km radius fallback
+        }),
       };
 
       service.textSearch(request, (results, status, pagination) => {
@@ -242,8 +264,8 @@ export function useMapActions(): UseMapActionsResult {
         }
 
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          // REMOVED 10-result limit - now shows all results
-          const places: PlaceResult[] = results.map((place) => ({
+          // Map results to PlaceResult format
+          let places: PlaceResult[] = results.map((place) => ({
             placeId: place.place_id || '',
             name: place.name || 'Unknown',
             address: place.formatted_address || '',
@@ -256,6 +278,17 @@ export function useMapActions(): UseMapActionsResult {
             types: place.types,
             openNow: place.opening_hours?.isOpen?.(),
           }));
+
+          // SMART LOCATION FILTERING: Only show results from the requested area
+          if (targetLocationName) {
+            places = places.filter((place) => {
+              const address = place.address.toLowerCase();
+              const vicinity = results.find(r => r.place_id === place.placeId)?.vicinity?.toLowerCase() || '';
+
+              // Check if the place's address contains the target location
+              return address.includes(targetLocationName!) || vicinity.includes(targetLocationName!);
+            });
+          }
 
           // Store the count before updating for proper marker numbering
           const previousCount = isPaginatingRef.current ? markersRef.current.length : 0;
@@ -313,6 +346,27 @@ export function useMapActions(): UseMapActionsResult {
               // Close previously opened InfoWindow
               if (activeInfoWindowRef.current) {
                 activeInfoWindowRef.current.close();
+              }
+
+              // Center map on marker with offset so InfoWindow is visible
+              const markerPos = marker.getPosition();
+              if (markerPos) {
+                // Offset upward so the InfoWindow content appears centered on screen
+                const projection = map.getProjection();
+                if (projection) {
+                  const point = projection.fromLatLngToPoint(markerPos);
+                  if (point) {
+                    const scale = Math.pow(2, map.getZoom() || 15);
+                    // Shift down by 150px worth of map coordinates so marker+infowindow centers on screen
+                    point.y -= 150 / scale;
+                    const offsetPos = projection.fromPointToLatLng(point);
+                    if (offsetPos) {
+                      map.panTo(offsetPos);
+                    }
+                  }
+                } else {
+                  map.panTo(markerPos);
+                }
               }
 
               // Open new InfoWindow and set it as active

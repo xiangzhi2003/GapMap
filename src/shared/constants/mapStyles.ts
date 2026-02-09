@@ -13,8 +13,8 @@ export const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   },
   {
     featureType: 'administrative',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1a1a25' }],
+    elementType: 'geometry',
+    stylers: [{ visibility: 'off' }],
   },
   {
     featureType: 'administrative.locality',
