@@ -13,6 +13,7 @@ interface ChatSidebarProps {
   onClose: () => void;
   messages: ChatMessageType[];
   isLoading: boolean;
+  isAnalyzing?: boolean;
   onSendMessage: (message: string) => void;
   onSearch: (query: string) => void;
   onClearSearch: () => void;
@@ -29,6 +30,7 @@ export default function ChatSidebar({
   onClose,
   messages,
   isLoading,
+  isAnalyzing,
   onSendMessage,
   onSearch,
   onClearSearch,
@@ -41,10 +43,10 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or analyzing starts
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isAnalyzing]);
 
   return (
     <AnimatePresence>
@@ -148,17 +150,42 @@ export default function ChatSidebar({
                 {messages.map((message) => (
                   <ChatMessage key={message.id} message={message} />
                 ))}
-                {isLoading && (
+                {(isLoading || isAnalyzing) && (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className="flex gap-3"
                   >
-                    <div role="status" aria-label="GapMap is typing a response" className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                      <div className="flex gap-1" aria-hidden="true">
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      >
+                        <Sparkles size={16} className="text-purple-400" />
+                      </motion.div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="rounded-2xl px-4 py-3 bg-[#1a1a25] border border-purple-500/20 rounded-tl-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-300">
+                            {isAnalyzing ? 'Analyzing market data' : 'Thinking'}
+                          </span>
+                          <motion.span
+                            className="text-sm text-purple-400"
+                            animate={{ opacity: [1, 0.3, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                          >
+                            ...
+                          </motion.span>
+                        </div>
+                        {isAnalyzing && (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: '100%' }}
+                            transition={{ duration: 15, ease: 'easeOut' }}
+                            className="h-0.5 bg-gradient-to-r from-purple-500 via-cyan-500 to-purple-500 rounded-full mt-2"
+                          />
+                        )}
                       </div>
                     </div>
                   </motion.div>

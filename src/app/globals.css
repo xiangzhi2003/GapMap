@@ -66,6 +66,16 @@ body {
   filter: invert(1);
 }
 
+/* Zone label text shadow for map readability */
+.zone-label {
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.9),
+    1px -1px 0 rgba(0, 0, 0, 0.9),
+    -1px 1px 0 rgba(0, 0, 0, 0.9),
+    1px 1px 0 rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(0, 0, 0, 0.8);
+}
+
 /* Glassmorphism effects */
 .glass-panel {
   background: rgba(18, 18, 26, 0.8);

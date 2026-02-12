@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import { Map, useMapActions } from '@/features/map';
 import { ChatSidebar, useChat, useMarketAnalysis } from '@/features/chat';
 import { ChatContext, ChatMessage } from '@/shared/types/chat';
-import type { HeatmapMode } from '@/shared/types/heatmap';
-import { analyzeHeatmapZone } from '@/shared/utils/heatmapCalculator';
+
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { messages, isLoading, sendMessage, addMessage, clearMessages } = useChat();
   const { analyzeMarket } = useMarketAnalysis();
@@ -29,12 +29,9 @@ export default function Home() {
     loadMoreResults,
     heatmapMode,
     setHeatmapMode,
-    updateHeatmapLayer,
-    showMarkersWithHeatmap,
-    setShowMarkersWithHeatmap,
+    updateZoneOverlays,
+    zoneClusters,
   } = useMapActions();
-
-  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
@@ -58,45 +55,40 @@ export default function Home() {
       if ((result.intent === 'search' || result.intent === 'analyze') && result.query) {
         clearSearchResults();
         clearDirections();
-        await searchPlaces(result.query, map, {
+        const places = await searchPlaces(result.query, map, {
           category: result.category,
           location: result.location
         });
 
         // Trigger market analysis for "analyze" intent
-        if (result.intent === 'analyze') {
-          // Auto-enable opportunity heatmap for analyze queries
-          setHeatmapMode('opportunity');
+        if (result.intent === 'analyze' && places.length > 0) {
+          // Auto-enable competition heatmap: red = saturated, green = gap/opportunity
+          setHeatmapMode('competition');
+          updateZoneOverlays(places, 'competition', map);
 
-          // Wait for search results to populate (race condition mitigation)
-          setTimeout(async () => {
-            if (searchResults.length > 0) {
-              // Update heatmap with search results
-              if (map) {
-                updateHeatmapLayer(searchResults, 'opportunity', map);
-              }
+          setIsAnalyzing(true);
+          try {
+            const analysis = await analyzeMarket(
+              places,
+              result.category || 'business',
+              result.location || 'this area',
+              content
+            );
 
-              const analysis = await analyzeMarket(
-                searchResults,
-                result.category || 'business',
-                result.location || 'this area',
-                content
-              );
+            if (analysis) {
+              const analysisMessage: ChatMessage = {
+                id: `analysis-${Date.now()}`,
+                role: 'assistant',
+                content: analysis.insights,
+                timestamp: new Date(),
+                analysisData: analysis.analysis,
+              };
 
-              if (analysis) {
-                // Add analysis as special message
-                const analysisMessage: ChatMessage = {
-                  id: `analysis-${Date.now()}`,
-                  role: 'assistant',
-                  content: analysis.insights,
-                  timestamp: new Date(),
-                  analysisData: analysis.analysis,
-                };
-
-                addMessage(analysisMessage);
-              }
+              addMessage(analysisMessage);
             }
-          }, 2000);
+          } finally {
+            setIsAnalyzing(false);
+          }
         }
       } else if (result.intent === 'directions' && result.directions) {
         clearSearchResults();
@@ -109,7 +101,7 @@ export default function Home() {
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, searchResults, analyzeMarket, addMessage, setHeatmapMode, updateHeatmapLayer]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, analyzeMarket, addMessage, setHeatmapMode, updateZoneOverlays]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {
@@ -140,51 +132,32 @@ export default function Home() {
     }
   }, [map, loadMoreResults]);
 
-  const handleHeatmapClick = useCallback((latLng: google.maps.LatLng) => {
-    if (!map) return;
-
-    const analysis = analyzeHeatmapZone(latLng, searchResults, heatmapMode);
-
-    // Create InfoWindow with analysis
-    const infoWindow = new google.maps.InfoWindow({
-      position: latLng,
-      content: `
-        <div style="padding: 12px; min-width: 280px; color: #fff; font-family: 'Geist Sans', sans-serif;">
-          <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: ${
-            analysis.competitionLevel === 'low' ? '#22c55e' :
-            analysis.competitionLevel === 'medium' ? '#f59e0b' : '#ef4444'
-          };">
-            ${analysis.competitionLevel.toUpperCase()} COMPETITION ZONE
-          </div>
-          <div style="font-size: 12px; margin-bottom: 8px; color: #e5e7eb;">
-            Score: ${Math.round(analysis.competitionScore)}/100
-          </div>
-          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">
-            ${analysis.recommendation}
-          </div>
-          ${analysis.nearestCompetitors.length > 0 ? `
-            <div style="border-top: 1px solid #2a2a3a; margin-top: 8px; padding-top: 8px;">
-              <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">Nearest:</div>
-              ${analysis.nearestCompetitors.slice(0, 3).map(c => `
-                <div style="font-size: 10px; color: #d1d5db; margin-bottom: 2px;">
-                  • ${c.name} (${(c.distance / 1000).toFixed(1)}km)
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
-        </div>
-      `,
-    });
-
-    infoWindow.open(map);
-  }, [map, searchResults, heatmapMode]);
-
   const handleStreetViewChange = useCallback((inStreetView: boolean) => {
     // Auto-hide sidebar when entering Street View (like Google Maps)
     if (inStreetView) {
       setIsSidebarOpen(false);
     }
   }, []);
+
+  // Global callback for AI Zone Deep-Dive button in InfoWindows
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__analyzeZone = (
+      areaName: string,
+      level: string,
+      placeCount: number,
+      strength: number
+    ) => {
+      const prompt = level === 'green'
+        ? `Analyze this market gap opportunity in ${areaName}. This is a green zone with no nearby competitors. What type of business would thrive here? Consider demographics, foot traffic, and local demand. Provide specific actionable recommendations.`
+        : `Deep-dive analysis of ${areaName} zone (${level} competition, ${placeCount} competitors, competitor strength ${strength}/100). What are the weaknesses of existing businesses? What service gaps exist? How can a new entrant differentiate and succeed? Give specific strategic advice.`;
+
+      setIsSidebarOpen(true);
+      handleSendMessage(prompt);
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__analyzeZone;
+    };
+  }, [handleSendMessage]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
@@ -204,6 +177,7 @@ export default function Home() {
         onClose={() => setIsSidebarOpen(false)}
         messages={messages}
         isLoading={isLoading}
+        isAnalyzing={isAnalyzing}
         onSendMessage={handleSendMessage}
         onSearch={handleSearch}
         onClearSearch={handleClearSearch}
@@ -225,12 +199,8 @@ export default function Home() {
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}
-          heatmapMode={heatmapMode}
-          onHeatmapModeChange={setHeatmapMode}
-          showMarkersWithHeatmap={showMarkersWithHeatmap}
-          onToggleMarkers={() => setShowMarkersWithHeatmap(!showMarkersWithHeatmap)}
-          onHeatmapClick={handleHeatmapClick}
-          heatmapRef={heatmapRef}
+          showZoneLegend={heatmapMode !== 'off'}
+          zoneClusters={zoneClusters}
         />
 
         {/* Overlay gradient for visual effect */}

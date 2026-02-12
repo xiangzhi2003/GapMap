@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
 import { LIGHT_MAP_STYLES, SATELLITE_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
-import HeatmapControls from './HeatmapControls';
-import type { HeatmapMode } from '@/shared/types/heatmap';
-import { getZoomBasedRadius } from '@/shared/utils/heatmapCalculator';
+import type { ZoneCluster } from '@/shared/utils/zoneClusterer';
+
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
   searchResults?: PlaceResult[];
@@ -17,12 +16,152 @@ interface MapProps {
   hasMoreResults?: boolean;
   onLoadMore?: () => void;
   onStreetViewChange?: (isStreetView: boolean) => void;
-  heatmapMode?: HeatmapMode;
-  onHeatmapModeChange?: (mode: HeatmapMode) => void;
-  showMarkersWithHeatmap?: boolean;
-  onToggleMarkers?: () => void;
-  onHeatmapClick?: (latLng: google.maps.LatLng) => void;
-  heatmapRef?: React.RefObject<google.maps.visualization.HeatmapLayer | null>;
+  showZoneLegend?: boolean;
+  zoneClusters?: ZoneCluster[];
+}
+
+function ZoneLegend({ visible }: { visible: boolean }) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+          className="absolute bottom-20 left-4 z-10 bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-xl p-3 shadow-2xl"
+          style={{ minWidth: '170px' }}
+        >
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Zone Legend
+          </div>
+          <div className="space-y-1.5">
+            <LegendItem color="#ef4444" label="High Saturation" range="4+ competitors" />
+            <LegendItem color="#f59e0b" label="Moderate" range="2-3 competitors" />
+            <LegendItem color="#22c55e" label="Opportunity" range="1 competitor" />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function LegendItem({ color, label, range, pulse }: { color: string; label: string; range: string; pulse?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={`w-3 h-3 rounded-full flex-shrink-0 ${pulse ? 'animate-pulse' : ''}`}
+        style={{ backgroundColor: color, border: '1.5px solid rgba(255,255,255,0.4)' }}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] text-white font-medium leading-tight">{label}</div>
+        <div className="text-[9px] text-gray-500 leading-tight">{range}</div>
+      </div>
+    </div>
+  );
+}
+
+function ZoneComparisonTable({ clusters }: { clusters: ZoneCluster[] }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (clusters.length === 0) return null;
+
+  const levelColors: Record<string, string> = {
+    red: '#ef4444',
+    orange: '#f59e0b',
+    green: '#22c55e',
+  };
+
+  const levelBadge = (level: string) => (
+    <span
+      style={{
+        background: `${levelColors[level] || '#22c55e'}22`,
+        color: levelColors[level] || '#22c55e',
+        border: `1px solid ${levelColors[level] || '#22c55e'}44`,
+      }}
+      className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase"
+    >
+      {level === 'red' ? 'High' : level === 'orange' ? 'Mid' : 'Low'}
+    </span>
+  );
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-[95vw] max-w-[800px]"
+      >
+        <div className="bg-[#12121a]/95 backdrop-blur-xl border border-[#2a2a3a] rounded-xl shadow-2xl overflow-hidden">
+          {/* Header toggle */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                Zone Comparison
+              </span>
+              <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                {clusters.length} zones
+              </span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown size={14} className="text-gray-400" />
+            ) : (
+              <ChevronUp size={14} className="text-gray-400" />
+            )}
+          </button>
+
+          {/* Table content */}
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: 'auto' }}
+              exit={{ height: 0 }}
+              className="overflow-x-auto"
+            >
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-t border-[#2a2a3a] text-gray-500">
+                    <th className="px-3 py-2 text-left font-medium">Zone</th>
+                    <th className="px-3 py-2 text-center font-medium">Level</th>
+                    <th className="px-3 py-2 text-center font-medium">Count</th>
+                    <th className="px-3 py-2 text-center font-medium">Density</th>
+                    <th className="px-3 py-2 text-center font-medium">Strength</th>
+                    <th className="px-3 py-2 text-center font-medium">Avg Rating</th>
+                    <th className="px-3 py-2 text-center font-medium">Reviews</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clusters
+                    .sort((a, b) => b.competitorStrength - a.competitorStrength)
+                    .map((c) => (
+                    <tr key={c.id} className="border-t border-[#1a1a2e] hover:bg-white/5 transition-colors">
+                      <td className="px-3 py-2 text-white font-medium truncate max-w-[140px]">{c.areaName}</td>
+                      <td className="px-3 py-2 text-center">{levelBadge(c.level)}</td>
+                      <td className="px-3 py-2 text-center text-gray-300">{c.placeCount}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="text-cyan-400 font-mono">{c.competitionDensity}</span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span style={{ color: c.competitorStrength > 60 ? '#ef4444' : c.competitorStrength > 30 ? '#f59e0b' : '#22c55e' }} className="font-mono">
+                          {c.competitorStrength}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-300">{c.averageRating.toFixed(1)}★</td>
+                      <td className="px-3 py-2 text-center text-gray-300">{c.totalReviews.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
 }
 
 export default function Map({
@@ -33,28 +172,17 @@ export default function Map({
   hasMoreResults,
   onLoadMore,
   onStreetViewChange,
-  heatmapMode,
-  onHeatmapModeChange,
-  showMarkersWithHeatmap,
-  onToggleMarkers,
-  onHeatmapClick,
-  heatmapRef
+  showZoneLegend = false,
+  zoneClusters = [],
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const routeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-  const heatmapClickHandlerRef = useRef<((latLng: google.maps.LatLng) => void) | undefined>(onHeatmapClick);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isStreetView, setIsStreetView] = useState(false);
   const [streetViewTitle, setStreetViewTitle] = useState('Street View');
   const [streetViewSubtitle, setStreetViewSubtitle] = useState('');
   const [streetViewCoords, setStreetViewCoords] = useState<{ lat: number; lng: number } | null>(null);
-
-  // Keep refs up to date
-  useEffect(() => {
-    heatmapClickHandlerRef.current = onHeatmapClick;
-  }, [onHeatmapClick]);
-
 
   const exitStreetView = useCallback(() => {
     if (!mapInstanceRef.current) return;
@@ -193,31 +321,6 @@ export default function Map({
 
     return () => clearTimeout(timer);
   }, [initMap]);
-
-  // Add heatmap listeners when map is ready
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    const clickListener = map.addListener('click', (event: google.maps.MapMouseEvent) => {
-      if (heatmapMode !== 'off' && event.latLng && heatmapClickHandlerRef.current) {
-        heatmapClickHandlerRef.current(event.latLng);
-      }
-    });
-
-    const zoomListener = map.addListener('zoom_changed', () => {
-      if (heatmapRef?.current && heatmapMode !== 'off') {
-        const zoom = map.getZoom() || 14;
-        const radius = getZoomBasedRadius(zoom);
-        heatmapRef.current.setOptions({ radius });
-      }
-    });
-
-    return () => {
-      google.maps.event.removeListener(clickListener);
-      google.maps.event.removeListener(zoomListener);
-    };
-  }, [heatmapMode, heatmapRef]);
 
   // Show route info as an InfoWindow anchored to the route midpoint
   useEffect(() => {
@@ -397,6 +500,12 @@ export default function Map({
         </div>
       )}
 
+      {/* Zone Legend */}
+      <ZoneLegend visible={showZoneLegend} />
+
+      {/* Zone Comparison Table */}
+      {showZoneLegend && <ZoneComparisonTable clusters={zoneClusters} />}
+
       {/* Search results count indicator */}
       {searchResults.length > 0 && (
         <motion.div
@@ -411,15 +520,6 @@ export default function Map({
         </motion.div>
       )}
 
-      {/* Heatmap Controls - show when there are search results */}
-      {searchResults.length > 0 && (
-        <HeatmapControls
-          mode={heatmapMode || 'off'}
-          showMarkers={showMarkersWithHeatmap ?? true}
-          onModeChange={onHeatmapModeChange || (() => {})}
-          onToggleMarkers={onToggleMarkers || (() => {})}
-        />
-      )}
 
       {/* Load More Results Button */}
       {hasMoreResults && onLoadMore && (

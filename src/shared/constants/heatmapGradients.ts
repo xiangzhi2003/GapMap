@@ -1,53 +1,54 @@
 import type { HeatmapConfig } from '../types/heatmap';
 
+// Competition density gradient: green (few) → yellow (moderate) → red (many competitors)
+// Used for business analysis — shows where market is saturated vs. where gaps exist
 export const HEATMAP_GRADIENTS = {
-  // Competition Density: Classic thermal — transparent → green → yellow → orange → red
   competition: [
-    'rgba(0, 255, 255, 0)',       // Transparent
-    'rgba(0, 255, 0, 0.2)',       // Faint green
-    'rgba(0, 255, 0, 0.5)',       // Green
-    'rgba(128, 255, 0, 0.6)',     // Yellow-green
-    'rgba(255, 255, 0, 0.7)',     // Yellow
-    'rgba(255, 200, 0, 0.8)',     // Gold
-    'rgba(255, 128, 0, 0.9)',     // Orange
-    'rgba(255, 64, 0, 0.95)',     // Red-orange
-    'rgba(255, 0, 0, 1)',         // Red
-    'rgba(200, 0, 0, 1)',         // Dark red (hotspot center)
+    'rgba(0, 255, 0, 0)',         // Transparent (no data)
+    'rgba(0, 200, 0, 0.4)',       // Green (1 competitor — good gap)
+    'rgba(100, 220, 0, 0.5)',     // Light green
+    'rgba(200, 255, 0, 0.6)',     // Yellow-green
+    'rgba(255, 255, 0, 0.7)',     // Yellow (moderate competition)
+    'rgba(255, 200, 0, 0.75)',    // Gold
+    'rgba(255, 150, 0, 0.8)',     // Orange
+    'rgba(255, 100, 0, 0.85)',    // Dark orange (getting saturated)
+    'rgba(255, 50, 0, 0.9)',      // Red-orange
+    'rgba(255, 0, 0, 0.95)',      // Red (highly saturated — avoid)
   ],
 
-  // Opportunity: Red (avoid) → Yellow → Bright Green (best opportunity)
+  // Same as competition for now — density-based
   opportunity: [
-    'rgba(0, 255, 0, 0)',         // Transparent
-    'rgba(255, 0, 0, 0.3)',       // Faint red (low opportunity)
-    'rgba(255, 64, 0, 0.4)',      // Red-orange
-    'rgba(255, 128, 0, 0.5)',     // Orange
-    'rgba(255, 200, 0, 0.6)',     // Gold
-    'rgba(255, 255, 0, 0.7)',     // Yellow
-    'rgba(128, 255, 0, 0.8)',     // Yellow-green
-    'rgba(0, 255, 0, 0.9)',       // Green
-    'rgba(0, 255, 64, 0.95)',     // Bright green
-    'rgba(0, 255, 128, 1)',       // Emerald (best opportunity)
+    'rgba(0, 255, 0, 0)',
+    'rgba(0, 200, 0, 0.4)',
+    'rgba(100, 220, 0, 0.5)',
+    'rgba(200, 255, 0, 0.6)',
+    'rgba(255, 255, 0, 0.7)',
+    'rgba(255, 200, 0, 0.75)',
+    'rgba(255, 150, 0, 0.8)',
+    'rgba(255, 100, 0, 0.85)',
+    'rgba(255, 50, 0, 0.9)',
+    'rgba(255, 0, 0, 0.95)',
   ],
 
-  // Environment Risk: Green (safe) → Yellow → Red (danger)
+  // Environment Risk: Green (safe) → Red (danger)
   environment: [
-    'rgba(0, 255, 0, 0)',         // Transparent
-    'rgba(0, 255, 0, 0.2)',       // Faint green
-    'rgba(0, 255, 0, 0.5)',       // Green
-    'rgba(128, 255, 0, 0.6)',     // Yellow-green
-    'rgba(255, 255, 0, 0.7)',     // Yellow
-    'rgba(255, 200, 0, 0.8)',     // Gold
-    'rgba(255, 128, 0, 0.9)',     // Orange
-    'rgba(255, 64, 0, 0.95)',     // Red-orange
-    'rgba(255, 0, 0, 1)',         // Red
-    'rgba(200, 0, 0, 1)',         // Dark red
+    'rgba(0, 255, 0, 0)',
+    'rgba(0, 200, 0, 0.4)',
+    'rgba(100, 220, 0, 0.5)',
+    'rgba(200, 255, 0, 0.6)',
+    'rgba(255, 255, 0, 0.7)',
+    'rgba(255, 200, 0, 0.75)',
+    'rgba(255, 150, 0, 0.8)',
+    'rgba(255, 100, 0, 0.85)',
+    'rgba(255, 50, 0, 0.9)',
+    'rgba(255, 0, 0, 0.95)',
   ],
 };
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
   mode: 'off',
-  radius: 40,        // Moderate radius — Google handles interpolation
-  opacity: 0.7,      // Slightly transparent for map visibility
-  maxIntensity: 20,   // Low maxIntensity spreads color over larger area
+  radius: 80,         // Large radius — each place covers a neighborhood-sized area
+  opacity: 0.7,       // Visible but map still readable
+  maxIntensity: 4,    // 1 place = green, 2-3 overlapping = yellow, 4+ = red
   dissipating: true,
 };
