@@ -43,11 +43,17 @@ export default function Map({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const routeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const heatmapClickHandlerRef = useRef<((latLng: google.maps.LatLng) => void) | undefined>(onHeatmapClick);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isStreetView, setIsStreetView] = useState(false);
   const [streetViewTitle, setStreetViewTitle] = useState('Street View');
   const [streetViewSubtitle, setStreetViewSubtitle] = useState('');
   const [streetViewCoords, setStreetViewCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Keep refs up to date
+  useEffect(() => {
+    heatmapClickHandlerRef.current = onHeatmapClick;
+  }, [onHeatmapClick]);
 
 
   const exitStreetView = useCallback(() => {
@@ -172,29 +178,13 @@ export default function Map({
       streetView.addListener('position_changed', updateStreetViewLocation);
       streetView.addListener('pano_changed', updateStreetViewLocation);
 
-      // Add click listener for heatmap zone analysis
-      map.addListener('click', (event: google.maps.MapMouseEvent) => {
-        if (heatmapMode !== 'off' && event.latLng && onHeatmapClick) {
-          onHeatmapClick(event.latLng);
-        }
-      });
-
-      // Update heatmap radius on zoom change
-      map.addListener('zoom_changed', () => {
-        if (heatmapRef?.current && heatmapMode !== 'off') {
-          const zoom = map.getZoom() || 14;
-          const radius = getZoomBasedRadius(zoom);
-          heatmapRef.current.setOptions({ radius });
-        }
-      });
-
       onMapReady(map);
     } catch (error) {
       console.error('Failed to initialize map:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load Google Maps. Check console for details.';
       setMapError(errorMessage);
     }
-  }, [onMapReady, onStreetViewChange, heatmapMode, onHeatmapClick, heatmapRef]);
+  }, [onMapReady, onStreetViewChange]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -203,6 +193,31 @@ export default function Map({
 
     return () => clearTimeout(timer);
   }, [initMap]);
+
+  // Add heatmap listeners when map is ready
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const clickListener = map.addListener('click', (event: google.maps.MapMouseEvent) => {
+      if (heatmapMode !== 'off' && event.latLng && heatmapClickHandlerRef.current) {
+        heatmapClickHandlerRef.current(event.latLng);
+      }
+    });
+
+    const zoomListener = map.addListener('zoom_changed', () => {
+      if (heatmapRef?.current && heatmapMode !== 'off') {
+        const zoom = map.getZoom() || 14;
+        const radius = getZoomBasedRadius(zoom);
+        heatmapRef.current.setOptions({ radius });
+      }
+    });
+
+    return () => {
+      google.maps.event.removeListener(clickListener);
+      google.maps.event.removeListener(zoomListener);
+    };
+  }, [heatmapMode, heatmapRef]);
 
   // Show route info as an InfoWindow anchored to the route midpoint
   useEffect(() => {
