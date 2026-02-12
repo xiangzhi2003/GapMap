@@ -3,6 +3,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  analysisData?: AnalysisCardData;
 }
 
 export interface AnalysisCardData {
@@ -31,6 +32,8 @@ export interface ChatApiResponse {
   query: string | null;
   directions: { origin: string; destination: string } | null;
   reply: string;
+  category?: string | null;
+  location?: string | null;
 }
 
 export interface PlaceResult {

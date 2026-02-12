@@ -19,7 +19,7 @@ interface UseMapActionsResult {
   recentSearches: string[];
   hasMoreResults: boolean;
   selectedRouteIndex: number;
-  searchPlaces: (query: string, map: google.maps.Map) => Promise<void>;
+  searchPlaces: (query: string, map: google.maps.Map, structured?: { category?: string | null; location?: string | null }) => Promise<void>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   analyzeAccessibility: (query: string, map: google.maps.Map) => Promise<void>;
   clearSearchResults: () => void;
@@ -205,7 +205,7 @@ export function useMapActions(): UseMapActionsResult {
     });
   }, [placeDetailsCache, enrichPlaceWithEnvironmentData]);
 
-  const searchPlaces = useCallback(async (query: string, map: google.maps.Map): Promise<void> => {
+  const searchPlaces = useCallback(async (query: string, map: google.maps.Map, structured?: { category?: string | null; location?: string | null }): Promise<void> => {
     setIsSearching(true);
 
     // Increment search generation to invalidate stale callbacks
@@ -217,6 +217,26 @@ export function useMapActions(): UseMapActionsResult {
     // ALWAYS clear on new search (unless paginating)
     if (!isPaginatingRef.current) {
       clearMarkers(); // Now handles everything: markers, heatmap, green zone
+    }
+
+    // Smart Global Search: Pan map to location BEFORE searching
+    if (structured?.location && !isPaginatingRef.current) {
+      try {
+        const geocodeResult = await forwardGeocode(structured.location);
+        if (geocodeResult?.geometry?.location) {
+          const targetLatLng = new google.maps.LatLng(
+            geocodeResult.geometry.location.lat(),
+            geocodeResult.geometry.location.lng()
+          );
+          map.panTo(targetLatLng);
+          map.setZoom(14); // Standard city-level view
+          // Wait for map animation to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (geocodeError) {
+        console.warn('Geocoding failed, continuing with search:', geocodeError);
+        // Continue with search even if geocoding fails
+      }
     }
 
     try {

@@ -14,17 +14,30 @@ You must respond with a JSON object using this schema:
   "intent": "search" | "directions" | "analyze" | "accessibility" | "chat",
   "query": "refined search query for Google Maps" | null,
   "directions": { "origin": "starting location", "destination": "ending location" } | null,
-  "reply": "conversational response to the user"
+  "reply": "conversational response to the user",
+  "category": "business type/category extracted from query" | null,
+  "location": "geographic location extracted from query" | null
 }
+
+CATEGORY & LOCATION PARSING (CRITICAL):
+For search and analyze intents, extract the business category and geographic location separately:
+- **category**: The business type (gyms, cafes, restaurants, pet cafes, yoga studios, etc.)
+- **location**: The geographic area (Tokyo, Bukit Jalil, New York, KLCC, Puchong, etc.)
+- If query has both: "Find gyms in Tokyo" → category="gyms", location="Tokyo Japan"
+- If query has only category: "Find cafes" → category="cafes", location=null (use map context)
+- If query has only location: "Search Tokyo" → category=null, location="Tokyo Japan"
+- Include country for clarity: "Tokyo" → "Tokyo Japan", "Bukit Jalil" → "Bukit Jalil Malaysia"
+- Use map context to disambiguate: If user says "PJ" and map shows Malaysia, use "Petaling Jaya Malaysia"
 
 INTENT RULES:
 1. SEARCH — User wants to find/see/locate places:
    - intent="search", query="precise Google Maps query", directions=null
+   - **Extract category and location separately** for smart map panning
    - Refine vague queries into specific searchable terms
    - **LOCATION PRECISION**: When user specifies a location, ONLY show results from that exact area
    - Include the location name in the query to ensure results match the requested area
-   - Example: User says "pet cafe in Bukit Jalil" → query should be "pet cafe in Bukit Jalil Malaysia"
-   - Example: User says "gyms near KLCC" → query should be "gyms near KLCC Kuala Lumpur"
+   - Example: User says "pet cafe in Bukit Jalil" → query="pet cafe in Bukit Jalil Malaysia", category="pet cafes", location="Bukit Jalil Malaysia"
+   - Example: User says "gyms near KLCC" → query="gyms near KLCC Kuala Lumpur", category="gyms", location="KLCC Kuala Lumpur Malaysia"
 
 2. DIRECTIONS — User wants routes/directions between places:
    - intent="directions", query=null, directions={ origin, destination }
@@ -34,14 +47,14 @@ INTENT RULES:
 
 3. ANALYZE — User wants market analysis, competition check, or best location advice:
    - intent="analyze", query="the business type + area to search", directions=null
-   - In your reply, provide strategic analysis with:
-     • Competition density assessment
-     • Market gap opportunities
-     • Recommended areas and why
-     • Terrain/elevation considerations (flood risk in low-lying areas)
-     • Air quality assessment for health/outdoor businesses
-     • Accessibility from surrounding residential areas
-   - The map will show search results while your reply provides the analysis
+   - **Extract category and location separately** for intelligent analysis
+   - In your reply, provide BRIEF acknowledgment (1-2 sentences)
+   - The system will automatically generate a detailed Market Analysis Card with:
+     • Red Zones (high competition areas with specific place names)
+     • Orange Zones (moderate competition areas)
+     • Green Zones (market gap opportunities with recommended streets/landmarks)
+     • Strategic recommendation with actionable insights
+   - The map will show search results while a data-driven analysis card appears in chat
 
 4. ACCESSIBILITY — User wants to check how easy a location is to reach:
    - intent="accessibility", query="the location or area to analyze", directions=null
@@ -82,14 +95,15 @@ LOCATION INTELLIGENCE — CRITICAL:
 - If user says "find gyms here" and map context shows Bukit Jalil, respond with query="gyms in Bukit Jalil Malaysia"
 
 EXAMPLES:
-- "Find gyms in Puchong" → {"intent": "search", "query": "gyms in Puchong Malaysia", "directions": null, "reply": "Searching for gyms in Puchong. I'll show you options specifically from the Puchong area."}
-- "Pet cafe Bukit Jalil" → {"intent": "search", "query": "pet cafe in Bukit Jalil Malaysia", "directions": null, "reply": "Searching for pet cafes in Bukit Jalil. I'll only show results from Bukit Jalil, not nearby areas."}
-- "How do I get from KL Sentral to KLCC?" → {"intent": "directions", "query": null, "directions": {"origin": "KL Sentral", "destination": "KLCC"}, "reply": "Here's the route from KL Sentral to KLCC. I'll show the best route and alternatives."}
-- "Analyze the market for opening a café in Bukit Jalil" → {"intent": "analyze", "query": "cafes in Bukit Jalil Malaysia", "directions": null, "reply": "Let me analyze the café market in Bukit Jalil.\\n\\n**Market Overview:**\\n• Bukit Jalil is a high-density residential area with growing foot traffic\\n• The area around Pavilion Bukit Jalil has strong commercial potential\\n\\n**Competition Assessment:**\\n• Expect moderate competition near the mall area\\n• Residential zones further from the mall may have gaps\\n\\n**Terrain & Environment:**\\n• The area has moderate elevation with low flood risk\\n• Good air quality for outdoor seating options\\n\\n**Recommendation:**\\nLook for locations near residential clusters but away from the main mall strip where established chains dominate. The areas around Bukit Jalil Recreation Park could offer good visibility with less competition."}
-- "How accessible is KLCC for opening a restaurant?" → {"intent": "accessibility", "query": "restaurants near KLCC", "directions": null, "reply": "I'll analyze the accessibility of KLCC for a restaurant business.\\n\\n**Accessibility Analysis:**\\n• Calculating travel times from 8 surrounding directions\\n• KLCC is well-connected via LRT, monorail, and major highways\\n• High foot traffic from nearby offices and hotels\\n\\nThe map will show the area and calculate real driving times from surrounding neighborhoods."}
-- "Thanks!" → {"intent": "chat", "query": null, "directions": null, "reply": "You're welcome! Let me know if you need help finding the perfect location for your business."}
-- "Navigate from Sunway Pyramid to Mid Valley" → {"intent": "directions", "query": null, "directions": {"origin": "Sunway Pyramid", "destination": "Mid Valley Megamall"}, "reply": "Routing from Sunway Pyramid to Mid Valley Megamall. I'll show the best route with distance info."}
-- "Best location for an outdoor yoga studio in PJ?" → {"intent": "analyze", "query": "yoga studios in Petaling Jaya", "directions": null, "reply": "Let me analyze the yoga studio market in Petaling Jaya.\\n\\n**Market Overview:**\\n• PJ has a growing wellness-conscious demographic\\n• Areas like SS2, Damansara, and Kelana Jaya have affluent residents\\n\\n**Air Quality Consideration:**\\n• For outdoor yoga, air quality is critical — I'll check current AQI\\n• Haze season (Aug-Oct) may require indoor backup space\\n\\n**Recommendation:**\\nLook for locations with both indoor and covered outdoor spaces to adapt to seasonal air quality changes."}
+- "Find gyms in Puchong" → {"intent": "search", "query": "gyms in Puchong Malaysia", "category": "gyms", "location": "Puchong Malaysia", "directions": null, "reply": "Searching for gyms in Puchong. I'll show you options specifically from the Puchong area."}
+- "Pet cafe Bukit Jalil" → {"intent": "search", "query": "pet cafe in Bukit Jalil Malaysia", "category": "pet cafes", "location": "Bukit Jalil Malaysia", "directions": null, "reply": "Searching for pet cafes in Bukit Jalil. I'll only show results from Bukit Jalil, not nearby areas."}
+- "Find cafes in Tokyo" → {"intent": "search", "query": "cafes in Tokyo Japan", "category": "cafes", "location": "Tokyo Japan", "directions": null, "reply": "Searching for cafes in Tokyo. The map will pan to Tokyo and show results from the area."}
+- "How do I get from KL Sentral to KLCC?" → {"intent": "directions", "query": null, "category": null, "location": null, "directions": {"origin": "KL Sentral", "destination": "KLCC"}, "reply": "Here's the route from KL Sentral to KLCC. I'll show the best route and alternatives."}
+- "Analyze the market for opening a café in Bukit Jalil" → {"intent": "analyze", "query": "cafes in Bukit Jalil Malaysia", "category": "cafes", "location": "Bukit Jalil Malaysia", "directions": null, "reply": "Analyzing the café market in Bukit Jalil. I'll search for competitors and generate a detailed market analysis card with Red/Orange/Green zones and strategic recommendations."}
+- "How accessible is KLCC for opening a restaurant?" → {"intent": "accessibility", "query": "restaurants near KLCC", "category": "restaurants", "location": "KLCC Malaysia", "directions": null, "reply": "I'll analyze the accessibility of KLCC for a restaurant business.\\n\\n**Accessibility Analysis:**\\n• Calculating travel times from 8 surrounding directions\\n• KLCC is well-connected via LRT, monorail, and major highways\\n• High foot traffic from nearby offices and hotels\\n\\nThe map will show the area and calculate real driving times from surrounding neighborhoods."}
+- "Thanks!" → {"intent": "chat", "query": null, "category": null, "location": null, "directions": null, "reply": "You're welcome! Let me know if you need help finding the perfect location for your business."}
+- "Navigate from Sunway Pyramid to Mid Valley" → {"intent": "directions", "query": null, "category": null, "location": null, "directions": {"origin": "Sunway Pyramid", "destination": "Mid Valley Megamall"}, "reply": "Routing from Sunway Pyramid to Mid Valley Megamall. I'll show the best route with distance info."}
+- "Best location for an outdoor yoga studio in PJ?" → {"intent": "analyze", "query": "yoga studios in Petaling Jaya Malaysia", "category": "yoga studios", "location": "Petaling Jaya Malaysia", "directions": null, "reply": "Analyzing the yoga studio market in Petaling Jaya. I'll search for competitors and generate a market analysis with insights on air quality, competition density, and recommended zones."}
 `;
 
 interface ChatResponse {
@@ -97,6 +111,8 @@ interface ChatResponse {
   query: string | null;
   directions: { origin: string; destination: string } | null;
   reply: string;
+  category?: string | null;
+  location?: string | null;
 }
 
 export async function chat(
@@ -140,6 +156,8 @@ export async function chat(
       query: parsed.query || null,
       directions: parsed.directions || null,
       reply: parsed.reply || 'I encountered an issue. Please try again.',
+      category: parsed.category || null,
+      location: parsed.location || null,
     };
   } catch (error) {
     console.error('Gemini chat error:', error);

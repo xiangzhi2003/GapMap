@@ -3,14 +3,15 @@
 import { useState, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import { Map, useMapActions } from '@/features/map';
-import { ChatSidebar, useChat } from '@/features/chat';
-import { ChatContext } from '@/shared/types/chat';
+import { ChatSidebar, useChat, useMarketAnalysis } from '@/features/chat';
+import { ChatContext, ChatMessage } from '@/shared/types/chat';
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const { messages, isLoading, sendMessage, clearMessages } = useChat();
+  const { messages, isLoading, sendMessage, addMessage, clearMessages } = useChat();
+  const { analyzeMarket } = useMarketAnalysis();
   const {
     searchResults,
     isSearching,
@@ -48,7 +49,38 @@ export default function Home() {
       if ((result.intent === 'search' || result.intent === 'analyze') && result.query) {
         clearSearchResults();
         clearDirections();
-        await searchPlaces(result.query, map);
+        await searchPlaces(result.query, map, {
+          category: result.category,
+          location: result.location
+        });
+
+        // Trigger market analysis for "analyze" intent
+        if (result.intent === 'analyze') {
+          // Wait for search results to populate (race condition mitigation)
+          setTimeout(async () => {
+            if (searchResults.length > 0) {
+              const analysis = await analyzeMarket(
+                searchResults,
+                result.category || 'business',
+                result.location || 'this area',
+                content
+              );
+
+              if (analysis) {
+                // Add analysis as special message
+                const analysisMessage: ChatMessage = {
+                  id: `analysis-${Date.now()}`,
+                  role: 'assistant',
+                  content: analysis.insights,
+                  timestamp: new Date(),
+                  analysisData: analysis.analysis,
+                };
+
+                addMessage(analysisMessage);
+              }
+            }
+          }, 2000);
+        }
       } else if (result.intent === 'directions' && result.directions) {
         clearSearchResults();
         clearDirections();
@@ -60,7 +92,7 @@ export default function Home() {
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, searchResults, analyzeMarket, addMessage]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {

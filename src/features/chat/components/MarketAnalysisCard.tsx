@@ -1,0 +1,213 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp, MapPin, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AnalysisCardData } from '@/shared/types/chat';
+
+interface MarketAnalysisCardProps {
+  data: AnalysisCardData;
+}
+
+export function MarketAnalysisCard({ data }: MarketAnalysisCardProps) {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    red: true,
+    orange: true,
+    green: true,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="glass-panel p-4 rounded-xl border border-cyan-500/20 glow-cyan my-3"
+    >
+      {/* Header */}
+      <div className="flex items-start gap-3 mb-4 pb-3 border-b border-cyan-500/20">
+        <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+          <TrendingUp size={20} className="text-cyan-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-cyan-400 mb-1">Market Analysis</h3>
+          <p className="text-xs text-gray-400">
+            {data.businessType} • {data.location}
+          </p>
+        </div>
+      </div>
+
+      {/* Red Zones */}
+      {data.redZones.length > 0 && (
+        <div className="mb-3">
+          <button
+            onClick={() => toggleSection('red')}
+            className="w-full flex items-center justify-between p-3 rounded-lg bg-red-500/5 border-l-4 border-red-500 hover:bg-red-500/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-400" />
+              <span className="text-sm font-medium text-red-400">
+                Red Zones ({data.redZones.length})
+              </span>
+            </div>
+            {expandedSections.red ? (
+              <ChevronUp size={16} className="text-red-400" />
+            ) : (
+              <ChevronDown size={16} className="text-red-400" />
+            )}
+          </button>
+          <AnimatePresence>
+            {expandedSections.red && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 space-y-2 pl-3">
+                  {data.redZones.map((zone, index) => (
+                    <div key={index} className="p-2 rounded bg-red-500/5 border border-red-500/20">
+                      <div className="flex items-start gap-2 mb-1">
+                        <MapPin size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-red-300">{zone.name}</p>
+                          {zone.count !== undefined && (
+                            <p className="text-[10px] text-red-400/60 mt-0.5">
+                              {zone.count} competitor{zone.count !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{zone.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Orange Zones */}
+      {data.orangeZones.length > 0 && (
+        <div className="mb-3">
+          <button
+            onClick={() => toggleSection('orange')}
+            className="w-full flex items-center justify-between p-3 rounded-lg bg-orange-500/5 border-l-4 border-orange-500 hover:bg-orange-500/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-orange-400" />
+              <span className="text-sm font-medium text-orange-400">
+                Orange Zones ({data.orangeZones.length})
+              </span>
+            </div>
+            {expandedSections.orange ? (
+              <ChevronUp size={16} className="text-orange-400" />
+            ) : (
+              <ChevronDown size={16} className="text-orange-400" />
+            )}
+          </button>
+          <AnimatePresence>
+            {expandedSections.orange && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 space-y-2 pl-3">
+                  {data.orangeZones.map((zone, index) => (
+                    <div key={index} className="p-2 rounded bg-orange-500/5 border border-orange-500/20">
+                      <div className="flex items-start gap-2 mb-1">
+                        <MapPin size={14} className="text-orange-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-orange-300">{zone.name}</p>
+                          {zone.count !== undefined && (
+                            <p className="text-[10px] text-orange-400/60 mt-0.5">
+                              {zone.count} competitor{zone.count !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{zone.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Green Zones */}
+      {data.greenZones.length > 0 && (
+        <div className="mb-3">
+          <button
+            onClick={() => toggleSection('green')}
+            className="w-full flex items-center justify-between p-3 rounded-lg bg-green-500/5 border-l-4 border-green-500 hover:bg-green-500/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-green-400" />
+              <span className="text-sm font-medium text-green-400">
+                Green Zones ({data.greenZones.length})
+              </span>
+            </div>
+            {expandedSections.green ? (
+              <ChevronUp size={16} className="text-green-400" />
+            ) : (
+              <ChevronDown size={16} className="text-green-400" />
+            )}
+          </button>
+          <AnimatePresence>
+            {expandedSections.green && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 space-y-2 pl-3">
+                  {data.greenZones.map((zone, index) => (
+                    <div key={index} className="p-2 rounded bg-green-500/5 border border-green-500/20">
+                      <div className="flex items-start gap-2 mb-1">
+                        <MapPin size={14} className="text-green-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-green-300">{zone.name}</p>
+                          {zone.count !== undefined && (
+                            <p className="text-[10px] text-green-400/60 mt-0.5">
+                              {zone.count} competitor{zone.count !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{zone.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Strategic Recommendation */}
+      <div className="mt-4 pt-3 border-t border-cyan-500/20">
+        <div className="flex items-start gap-2">
+          <div className="w-6 h-6 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+            <TrendingUp size={14} className="text-cyan-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-semibold text-cyan-400 mb-1">Strategic Recommendation</h4>
+            <p className="text-[11px] text-gray-300 leading-relaxed">{data.recommendation}</p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}

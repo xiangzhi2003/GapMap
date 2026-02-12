@@ -17,7 +17,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatApiRe
       intent: result.intent,
       query: result.query,
       directions: result.directions,
-      reply: result.reply
+      reply: result.reply,
+      category: result.category,
+      location: result.location
     });
   } catch (error) {
     console.error('Chat API error:', error);

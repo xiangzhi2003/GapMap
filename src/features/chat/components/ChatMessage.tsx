@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
 import { ChatMessage as ChatMessageType } from '@/shared/types/chat';
+import { MarketAnalysisCard } from './MarketAnalysisCard';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -171,6 +172,11 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             {formatTime(message.timestamp)}
           </time>
         </div>
+
+        {/* Market Analysis Card (if present) */}
+        {!isUser && message.analysisData && (
+          <MarketAnalysisCard data={message.analysisData} />
+        )}
       </div>
     </motion.div>
   );

@@ -7,7 +7,8 @@ interface UseChatResult {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  sendMessage: (content: string, mapContext?: ChatContext) => Promise<{ intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined>;
+  sendMessage: (content: string, mapContext?: ChatContext) => Promise<ChatApiResponse | undefined>;
+  addMessage: (message: ChatMessage) => void;
   clearMessages: () => void;
 }
 
@@ -16,7 +17,7 @@ export function useChat(): UseChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<{ intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat'; query: string | null; directions: { origin: string; destination: string } | null } | undefined> => {
+  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<ChatApiResponse | undefined> => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -63,8 +64,8 @@ export function useChat(): UseChatResult {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Return intent, query, and directions for map handling
-      return { intent: data.intent, query: data.query, directions: data.directions };
+      // Return full response for map handling
+      return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
       setError(errorMessage);
@@ -83,6 +84,10 @@ export function useChat(): UseChatResult {
     }
   }, [messages]);
 
+  const addMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
@@ -93,6 +98,7 @@ export function useChat(): UseChatResult {
     isLoading,
     error,
     sendMessage,
+    addMessage,
     clearMessages,
   };
 }
