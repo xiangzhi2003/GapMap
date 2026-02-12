@@ -12,10 +12,9 @@ import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/uti
 import { reverseGeocode, forwardGeocode, extractLocationFromQuery } from '@/shared/utils/geocoding';
 import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
 import {
-  generateDenseHeatmapGrid,
+  calculateCompetitionWeights,
+  calculateOpportunityWeights,
   calculateEnvironmentWeights,
-  getZoomBasedRadius,
-  analyzeHeatmapZone
 } from '@/shared/utils/heatmapCalculator';
 import { HEATMAP_GRADIENTS, DEFAULT_HEATMAP_CONFIG } from '@/shared/constants/heatmapGradients';
 import type { HeatmapMode, WeightedPoint, HeatmapConfig } from '@/shared/types/heatmap';
@@ -250,35 +249,35 @@ export function useMapActions(): UseMapActionsResult {
 
     if (mode === 'off' || places.length === 0) return;
 
-    // Get visible map bounds
-    const bounds = map.getBounds();
-    if (!bounds) return;
-
-    // Generate dense grid of weighted points using IDW interpolation
+    // Use actual place locations as data points — let Google's HeatmapLayer
+    // handle smooth interpolation (produces classic heatmap blobs like Google Maps)
     let weightedPoints: WeightedPoint[];
 
     if (mode === 'environment') {
-      // Environment mode still uses sparse points (elevation/AQI data only at business locations)
-      // TODO: Could enhance with grid-based interpolation if needed
       weightedPoints = calculateEnvironmentWeights(places);
+    } else if (mode === 'opportunity') {
+      weightedPoints = calculateOpportunityWeights(places);
     } else {
-      // Use DENSE GRID for competition and opportunity modes
-      weightedPoints = generateDenseHeatmapGrid(bounds, places, mode);
-      console.log(`Generated ${weightedPoints.length} grid points for ${mode} heatmap`);
+      weightedPoints = calculateCompetitionWeights(places);
     }
 
-    // Use LARGE RADIUS for smooth zone transitions
+    // Zoom-adaptive radius for natural-looking heatmap blobs
     const zoom = map.getZoom() || 14;
-    const radius = zoom >= 15 ? 80 : zoom >= 12 ? 120 : 150;  // Much larger than before!
+    let radius: number;
+    if (zoom >= 18) radius = 50;
+    else if (zoom >= 16) radius = 40;
+    else if (zoom >= 14) radius = 30;
+    else if (zoom >= 12) radius = 25;
+    else radius = 20;
 
-    // Create heatmap layer with prominent settings
+    // Create heatmap layer — classic style with smooth color blobs
     const heatmap = new google.maps.visualization.HeatmapLayer({
       data: weightedPoints,
       radius,
-      opacity: heatmapConfig.opacity,      // 0.85 (from updated config)
+      opacity: heatmapConfig.opacity,
       gradient: HEATMAP_GRADIENTS[mode],
       dissipating: true,
-      maxIntensity: heatmapConfig.maxIntensity,  // 100 (from updated config)
+      maxIntensity: heatmapConfig.maxIntensity,
     });
 
     heatmap.setMap(map);
