@@ -11,7 +11,15 @@ import { getTimezone } from '@/shared/utils/timezone';
 import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/utils/distanceMatrix';
 import { reverseGeocode, forwardGeocode, extractLocationFromQuery } from '@/shared/utils/geocoding';
 import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
-import { calculateGridZones, getZoneColor, type GridZone } from '@/shared/utils/zoneAnalysis';
+import {
+  calculateCompetitionWeights,
+  calculateOpportunityWeights,
+  calculateEnvironmentWeights,
+  getZoomBasedRadius,
+  analyzeHeatmapZone
+} from '@/shared/utils/heatmapCalculator';
+import { HEATMAP_GRADIENTS, DEFAULT_HEATMAP_CONFIG } from '@/shared/constants/heatmapGradients';
+import type { HeatmapMode, WeightedPoint, HeatmapConfig } from '@/shared/types/heatmap';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
@@ -26,7 +34,11 @@ interface UseMapActionsResult {
   clearSearchResults: () => void;
   clearDirections: () => void;
   loadMoreResults: (map: google.maps.Map) => Promise<void>;
-  drawZoneGrid: (map: google.maps.Map) => void;
+  heatmapMode: HeatmapMode;
+  setHeatmapMode: (mode: HeatmapMode) => void;
+  updateHeatmapLayer: (places: PlaceResult[], mode: HeatmapMode, map: google.maps.Map) => void;
+  showMarkersWithHeatmap: boolean;
+  setShowMarkersWithHeatmap: (show: boolean) => void;
 }
 
 export function useMapActions(): UseMapActionsResult {
@@ -39,6 +51,9 @@ export function useMapActions(): UseMapActionsResult {
   const [accessibilityResult, setAccessibilityResult] = useState<AccessibilityAnalysis | null>(null);
   const [routeAnalysis, setRouteAnalysis] = useState<AdvancedRouteResult | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('off');
+  const [heatmapConfig, setHeatmapConfig] = useState<HeatmapConfig>(DEFAULT_HEATMAP_CONFIG);
+  const [showMarkersWithHeatmap, setShowMarkersWithHeatmap] = useState(true);
   const isPaginatingRef = useRef<boolean>(false);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -50,7 +65,6 @@ export function useMapActions(): UseMapActionsResult {
   const searchGenerationRef = useRef<number>(0);
   const altPolylinesRef = useRef<google.maps.Polyline[]>([]);
   const altLabelsRef = useRef<google.maps.InfoWindow[]>([]);
-  const gridOverlaysRef = useRef<google.maps.Rectangle[]>([]);
 
   const clearMarkers = useCallback(() => {
     // Close active InfoWindow
@@ -80,10 +94,6 @@ export function useMapActions(): UseMapActionsResult {
       greenZoneMarkerRef.current.setMap(null);
       greenZoneMarkerRef.current = null;
     }
-
-    // Clear grid overlays
-    gridOverlaysRef.current.forEach(rect => rect.setMap(null));
-    gridOverlaysRef.current = [];
   }, []);
 
   const clearDirections = useCallback(() => {
@@ -223,6 +233,61 @@ export function useMapActions(): UseMapActionsResult {
       );
     });
   }, [placeDetailsCache, enrichPlaceWithEnvironmentData]);
+
+  /**
+   * Update heatmap layer based on mode and places
+   */
+  const updateHeatmapLayer = useCallback((
+    places: PlaceResult[],
+    mode: HeatmapMode,
+    map: google.maps.Map
+  ) => {
+    // Clear existing heatmap
+    if (heatmapRef.current) {
+      heatmapRef.current.setMap(null);
+      heatmapRef.current = null;
+    }
+
+    if (mode === 'off' || places.length === 0) return;
+
+    // Calculate weighted points based on mode
+    let weightedPoints: WeightedPoint[];
+    switch (mode) {
+      case 'competition':
+        weightedPoints = calculateCompetitionWeights(places);
+        break;
+      case 'opportunity':
+        weightedPoints = calculateOpportunityWeights(places);
+        break;
+      case 'environment':
+        weightedPoints = calculateEnvironmentWeights(places);
+        break;
+      default:
+        return;
+    }
+
+    // Get adaptive radius based on zoom
+    const zoom = map.getZoom() || 14;
+    const radius = getZoomBasedRadius(zoom);
+
+    // Create heatmap layer
+    const heatmap = new google.maps.visualization.HeatmapLayer({
+      data: weightedPoints,
+      radius,
+      opacity: heatmapConfig.opacity,
+      gradient: HEATMAP_GRADIENTS[mode],
+      dissipating: true,
+      maxIntensity: heatmapConfig.maxIntensity,
+    });
+
+    heatmap.setMap(map);
+    heatmapRef.current = heatmap;
+
+    // Optionally hide markers when heatmap is active
+    if (!showMarkersWithHeatmap) {
+      clustererRef.current?.clearMarkers();
+    }
+  }, [heatmapConfig, showMarkersWithHeatmap]);
 
   const searchPlaces = useCallback(async (query: string, map: google.maps.Map, structured?: { category?: string | null; location?: string | null }): Promise<void> => {
     setIsSearching(true);
@@ -454,6 +519,11 @@ export function useMapActions(): UseMapActionsResult {
               google.maps.event.removeListener(listener);
             });
           }
+
+          // Auto-generate heatmap if mode is active
+          if (heatmapMode !== 'off' && places.length > 0) {
+            updateHeatmapLayer(places, heatmapMode, map);
+          }
         } else {
           setSearchResults([]);
           setNextPageToken(null);
@@ -467,7 +537,7 @@ export function useMapActions(): UseMapActionsResult {
       setIsSearching(false);
       isPaginatingRef.current = false; // Reset flag on error
     }
-  }, [clearMarkers, getPlaceDetails]);
+  }, [clearMarkers, getPlaceDetails, heatmapMode, updateHeatmapLayer]);
 
   const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
     void map;
@@ -678,83 +748,6 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, [searchPlaces]);
 
-  /**
-   * Get static recommendation for a zone based on its status
-   */
-  function getZoneRecommendation(zone: GridZone): string {
-    switch (zone.status) {
-      case 'red':
-        return `High saturation (${zone.count} competitors). Avoid opening here unless you have strong differentiation.`;
-      case 'orange':
-        return `Moderate competition (${zone.count} competitors). Focus on unique value proposition or service gaps.`;
-      case 'green':
-        return zone.count === 0
-          ? 'Untapped market! High opportunity area with no direct competitors.'
-          : `Low competition (${zone.count} competitor). Strong opportunity for market entry.`;
-    }
-  }
-
-  /**
-   * Draw zone grid overlay for market density analysis
-   */
-  const drawZoneGrid = useCallback((map: google.maps.Map) => {
-    // Clear existing grid
-    gridOverlaysRef.current.forEach(rect => rect.setMap(null));
-    gridOverlaysRef.current = [];
-
-    if (searchResults.length === 0) return;
-
-    const bounds = map.getBounds();
-    if (!bounds) return;
-
-    const zones = calculateGridZones(bounds, searchResults);
-
-    zones.forEach((zone) => {
-      const rectangle = new google.maps.Rectangle({
-        bounds: zone.bounds,
-        map,
-        fillColor: getZoneColor(zone.status),
-        fillOpacity: 0.3,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-        strokeOpacity: 0.6,
-        clickable: true,
-      });
-
-      // Click handler for zone analysis
-      rectangle.addListener('click', async () => {
-        // Close previous InfoWindow
-        if (activeInfoWindowRef.current) {
-          activeInfoWindowRef.current.close();
-        }
-
-        // Create InfoWindow at zone center
-        const infoWindow = new google.maps.InfoWindow({
-          position: zone.center,
-          content: `
-            <div style="padding: 8px; min-width: 200px;">
-              <div style="font-weight: bold; color: ${getZoneColor(zone.status)}; margin-bottom: 4px;">
-                ${zone.status.toUpperCase()} ZONE
-              </div>
-              <div style="font-size: 13px; margin-bottom: 4px;">
-                Competitors: ${zone.count}
-              </div>
-              <div style="font-size: 12px; color: #666;">
-                ${getZoneRecommendation(zone)}
-              </div>
-            </div>
-          `,
-        });
-
-        infoWindow.open(map);
-        activeInfoWindowRef.current = infoWindow;
-      });
-
-      gridOverlaysRef.current.push(rectangle);
-    });
-  }, [searchResults]);
-
-
   return {
     searchResults,
     isSearching,
@@ -768,6 +761,10 @@ export function useMapActions(): UseMapActionsResult {
     clearSearchResults,
     clearDirections,
     loadMoreResults,
-    drawZoneGrid,
+    heatmapMode,
+    setHeatmapMode,
+    updateHeatmapLayer,
+    showMarkersWithHeatmap,
+    setShowMarkersWithHeatmap,
   };
 }

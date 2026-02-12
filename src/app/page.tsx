@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Menu } from 'lucide-react';
 import { Map, useMapActions } from '@/features/map';
 import { ChatSidebar, useChat, useMarketAnalysis } from '@/features/chat';
 import { ChatContext, ChatMessage } from '@/shared/types/chat';
+import type { HeatmapMode } from '@/shared/types/heatmap';
+import { analyzeHeatmapZone } from '@/shared/utils/heatmapCalculator';
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -25,8 +27,14 @@ export default function Home() {
     clearSearchResults,
     clearDirections,
     loadMoreResults,
-    drawZoneGrid,
+    heatmapMode,
+    setHeatmapMode,
+    updateHeatmapLayer,
+    showMarkersWithHeatmap,
+    setShowMarkersWithHeatmap,
   } = useMapActions();
+
+  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
@@ -57,9 +65,17 @@ export default function Home() {
 
         // Trigger market analysis for "analyze" intent
         if (result.intent === 'analyze') {
+          // Auto-enable opportunity heatmap for analyze queries
+          setHeatmapMode('opportunity');
+
           // Wait for search results to populate (race condition mitigation)
           setTimeout(async () => {
             if (searchResults.length > 0) {
+              // Update heatmap with search results
+              if (map) {
+                updateHeatmapLayer(searchResults, 'opportunity', map);
+              }
+
               const analysis = await analyzeMarket(
                 searchResults,
                 result.category || 'business',
@@ -93,7 +109,7 @@ export default function Home() {
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, searchResults, analyzeMarket, addMessage]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, searchResults, analyzeMarket, addMessage, setHeatmapMode, updateHeatmapLayer]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {
@@ -124,11 +140,44 @@ export default function Home() {
     }
   }, [map, loadMoreResults]);
 
-  const handleToggleZoneGrid = useCallback(() => {
-    if (map) {
-      drawZoneGrid(map);
-    }
-  }, [map, drawZoneGrid]);
+  const handleHeatmapClick = useCallback((latLng: google.maps.LatLng) => {
+    if (!map) return;
+
+    const analysis = analyzeHeatmapZone(latLng, searchResults, heatmapMode);
+
+    // Create InfoWindow with analysis
+    const infoWindow = new google.maps.InfoWindow({
+      position: latLng,
+      content: `
+        <div style="padding: 12px; min-width: 280px; color: #fff; font-family: 'Geist Sans', sans-serif;">
+          <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: ${
+            analysis.competitionLevel === 'low' ? '#22c55e' :
+            analysis.competitionLevel === 'medium' ? '#f59e0b' : '#ef4444'
+          };">
+            ${analysis.competitionLevel.toUpperCase()} COMPETITION ZONE
+          </div>
+          <div style="font-size: 12px; margin-bottom: 8px; color: #e5e7eb;">
+            Score: ${Math.round(analysis.competitionScore)}/100
+          </div>
+          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">
+            ${analysis.recommendation}
+          </div>
+          ${analysis.nearestCompetitors.length > 0 ? `
+            <div style="border-top: 1px solid #2a2a3a; margin-top: 8px; padding-top: 8px;">
+              <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">Nearest:</div>
+              ${analysis.nearestCompetitors.slice(0, 3).map(c => `
+                <div style="font-size: 10px; color: #d1d5db; margin-bottom: 2px;">
+                  • ${c.name} (${(c.distance / 1000).toFixed(1)}km)
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `,
+    });
+
+    infoWindow.open(map);
+  }, [map, searchResults, heatmapMode]);
 
   const handleStreetViewChange = useCallback((inStreetView: boolean) => {
     // Auto-hide sidebar when entering Street View (like Google Maps)
@@ -164,7 +213,6 @@ export default function Home() {
         onNewChat={handleNewChat}
         hasMarkers={searchResults.length > 0}
         hasDirections={directionsResult !== null}
-        onToggleZoneGrid={handleToggleZoneGrid}
       />
 
       {/* Map - Full Width */}
@@ -177,6 +225,12 @@ export default function Home() {
           hasMoreResults={hasMoreResults}
           onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}
+          heatmapMode={heatmapMode}
+          onHeatmapModeChange={setHeatmapMode}
+          showMarkersWithHeatmap={showMarkersWithHeatmap}
+          onToggleMarkers={() => setShowMarkersWithHeatmap(!showMarkersWithHeatmap)}
+          onHeatmapClick={handleHeatmapClick}
+          heatmapRef={heatmapRef}
         />
 
         {/* Overlay gradient for visual effect */}

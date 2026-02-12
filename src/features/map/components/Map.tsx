@@ -6,6 +6,9 @@ import { ArrowLeft } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
 import { LIGHT_MAP_STYLES, SATELLITE_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
 import { PlaceResult } from '@/shared/types/chat';
+import HeatmapControls from './HeatmapControls';
+import type { HeatmapMode } from '@/shared/types/heatmap';
+import { getZoomBasedRadius } from '@/shared/utils/heatmapCalculator';
 interface MapProps {
   onMapReady: (map: google.maps.Map) => void;
   searchResults?: PlaceResult[];
@@ -14,9 +17,29 @@ interface MapProps {
   hasMoreResults?: boolean;
   onLoadMore?: () => void;
   onStreetViewChange?: (isStreetView: boolean) => void;
+  heatmapMode?: HeatmapMode;
+  onHeatmapModeChange?: (mode: HeatmapMode) => void;
+  showMarkersWithHeatmap?: boolean;
+  onToggleMarkers?: () => void;
+  onHeatmapClick?: (latLng: google.maps.LatLng) => void;
+  heatmapRef?: React.RefObject<google.maps.visualization.HeatmapLayer | null>;
 }
 
-export default function Map({ onMapReady, searchResults = [], directionsResult, selectedRouteIndex = 0, hasMoreResults, onLoadMore, onStreetViewChange }: MapProps) {
+export default function Map({
+  onMapReady,
+  searchResults = [],
+  directionsResult,
+  selectedRouteIndex = 0,
+  hasMoreResults,
+  onLoadMore,
+  onStreetViewChange,
+  heatmapMode,
+  onHeatmapModeChange,
+  showMarkersWithHeatmap,
+  onToggleMarkers,
+  onHeatmapClick,
+  heatmapRef
+}: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const routeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
@@ -149,13 +172,29 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
       streetView.addListener('position_changed', updateStreetViewLocation);
       streetView.addListener('pano_changed', updateStreetViewLocation);
 
+      // Add click listener for heatmap zone analysis
+      map.addListener('click', (event: google.maps.MapMouseEvent) => {
+        if (heatmapMode !== 'off' && event.latLng && onHeatmapClick) {
+          onHeatmapClick(event.latLng);
+        }
+      });
+
+      // Update heatmap radius on zoom change
+      map.addListener('zoom_changed', () => {
+        if (heatmapRef?.current && heatmapMode !== 'off') {
+          const zoom = map.getZoom() || 14;
+          const radius = getZoomBasedRadius(zoom);
+          heatmapRef.current.setOptions({ radius });
+        }
+      });
+
       onMapReady(map);
     } catch (error) {
       console.error('Failed to initialize map:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load Google Maps. Check console for details.';
       setMapError(errorMessage);
     }
-  }, [onMapReady, onStreetViewChange]);
+  }, [onMapReady, onStreetViewChange, heatmapMode, onHeatmapClick, heatmapRef]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -355,6 +394,16 @@ export default function Map({ onMapReady, searchResults = [], directionsResult, 
             {searchResults.length} places found
           </p>
         </motion.div>
+      )}
+
+      {/* Heatmap Controls - show when there are search results */}
+      {searchResults.length > 0 && (
+        <HeatmapControls
+          mode={heatmapMode || 'off'}
+          showMarkers={showMarkersWithHeatmap ?? true}
+          onModeChange={onHeatmapModeChange || (() => {})}
+          onToggleMarkers={onToggleMarkers || (() => {})}
+        />
       )}
 
       {/* Load More Results Button */}

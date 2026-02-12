@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, Menu, Trash2, SquarePen, Grid3x3 } from 'lucide-react';
+import { Map, Sparkles, Menu, Trash2, SquarePen } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from '@/features/map/components/SearchBar';
@@ -22,7 +22,6 @@ interface ChatSidebarProps {
   onNewChat: () => void;
   hasMarkers: boolean;
   hasDirections: boolean;
-  onToggleZoneGrid: () => void;
 }
 
 export default function ChatSidebar({
@@ -39,7 +38,6 @@ export default function ChatSidebar({
   onNewChat,
   hasMarkers,
   hasDirections,
-  onToggleZoneGrid,
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -172,14 +170,7 @@ export default function ChatSidebar({
 
           {/* Clear Map Button - show when there are markers or directions */}
           {(hasMarkers || hasDirections) && (
-            <div className="px-4 pb-2 space-y-2">
-              <button
-                onClick={onToggleZoneGrid}
-                className="w-full py-2.5 px-4 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 rounded-lg text-purple-400 text-sm font-medium transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Grid3x3 size={16} />
-                Zone Scanner
-              </button>
+            <div className="px-4 pb-2">
               <button
                 onClick={onClearMap}
                 className="w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-400 text-sm font-medium transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
