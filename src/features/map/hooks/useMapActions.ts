@@ -11,6 +11,7 @@ import { getTimezone } from '@/shared/utils/timezone';
 import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/utils/distanceMatrix';
 import { reverseGeocode, forwardGeocode, extractLocationFromQuery } from '@/shared/utils/geocoding';
 import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
+import { calculateGridZones, getZoneColor, type GridZone } from '@/shared/utils/zoneAnalysis';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
@@ -25,6 +26,7 @@ interface UseMapActionsResult {
   clearSearchResults: () => void;
   clearDirections: () => void;
   loadMoreResults: (map: google.maps.Map) => Promise<void>;
+  drawZoneGrid: (map: google.maps.Map) => void;
 }
 
 export function useMapActions(): UseMapActionsResult {
@@ -48,6 +50,7 @@ export function useMapActions(): UseMapActionsResult {
   const searchGenerationRef = useRef<number>(0);
   const altPolylinesRef = useRef<google.maps.Polyline[]>([]);
   const altLabelsRef = useRef<google.maps.InfoWindow[]>([]);
+  const gridOverlaysRef = useRef<google.maps.Rectangle[]>([]);
 
   const clearMarkers = useCallback(() => {
     // Close active InfoWindow
@@ -77,6 +80,10 @@ export function useMapActions(): UseMapActionsResult {
       greenZoneMarkerRef.current.setMap(null);
       greenZoneMarkerRef.current = null;
     }
+
+    // Clear grid overlays
+    gridOverlaysRef.current.forEach(rect => rect.setMap(null));
+    gridOverlaysRef.current = [];
   }, []);
 
   const clearDirections = useCallback(() => {
@@ -136,6 +143,18 @@ export function useMapActions(): UseMapActionsResult {
 
     return enriched;
   }, []);
+
+  /**
+   * Sort places by review count (market presence proxy)
+   * Higher review count = stronger market presence
+   */
+  function sortPlacesByReviewCount(places: PlaceResult[]): PlaceResult[] {
+    return places.sort((a, b) => {
+      const reviewsA = a.userRatingsTotal || 0;
+      const reviewsB = b.userRatingsTotal || 0;
+      return reviewsB - reviewsA; // Descending
+    });
+  }
 
   const getPlaceDetails = useCallback(async (
     placeId: string,
@@ -299,6 +318,9 @@ export function useMapActions(): UseMapActionsResult {
             openNow: place.opening_hours?.isOpen?.(),
           }));
 
+          // SMART RANKING: Sort by review count before displaying
+          places = sortPlacesByReviewCount(places);
+
           // SMART LOCATION FILTERING: Only show results from the requested area
           if (targetLocationName) {
             places = places.filter((place) => {
@@ -355,6 +377,7 @@ export function useMapActions(): UseMapActionsResult {
                 strokeColor: '#ffffff',
                 strokeWeight: 2,
               },
+              zIndex: 1000 - (startIndex + index), // Higher rank = higher z-index
             });
 
             const infoWindow = new google.maps.InfoWindow({
@@ -655,6 +678,82 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, [searchPlaces]);
 
+  /**
+   * Get static recommendation for a zone based on its status
+   */
+  function getZoneRecommendation(zone: GridZone): string {
+    switch (zone.status) {
+      case 'red':
+        return `High saturation (${zone.count} competitors). Avoid opening here unless you have strong differentiation.`;
+      case 'orange':
+        return `Moderate competition (${zone.count} competitors). Focus on unique value proposition or service gaps.`;
+      case 'green':
+        return zone.count === 0
+          ? 'Untapped market! High opportunity area with no direct competitors.'
+          : `Low competition (${zone.count} competitor). Strong opportunity for market entry.`;
+    }
+  }
+
+  /**
+   * Draw zone grid overlay for market density analysis
+   */
+  const drawZoneGrid = useCallback((map: google.maps.Map) => {
+    // Clear existing grid
+    gridOverlaysRef.current.forEach(rect => rect.setMap(null));
+    gridOverlaysRef.current = [];
+
+    if (searchResults.length === 0) return;
+
+    const bounds = map.getBounds();
+    if (!bounds) return;
+
+    const zones = calculateGridZones(bounds, searchResults);
+
+    zones.forEach((zone) => {
+      const rectangle = new google.maps.Rectangle({
+        bounds: zone.bounds,
+        map,
+        fillColor: getZoneColor(zone.status),
+        fillOpacity: 0.3,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        strokeOpacity: 0.6,
+        clickable: true,
+      });
+
+      // Click handler for zone analysis
+      rectangle.addListener('click', async () => {
+        // Close previous InfoWindow
+        if (activeInfoWindowRef.current) {
+          activeInfoWindowRef.current.close();
+        }
+
+        // Create InfoWindow at zone center
+        const infoWindow = new google.maps.InfoWindow({
+          position: zone.center,
+          content: `
+            <div style="padding: 8px; min-width: 200px;">
+              <div style="font-weight: bold; color: ${getZoneColor(zone.status)}; margin-bottom: 4px;">
+                ${zone.status.toUpperCase()} ZONE
+              </div>
+              <div style="font-size: 13px; margin-bottom: 4px;">
+                Competitors: ${zone.count}
+              </div>
+              <div style="font-size: 12px; color: #666;">
+                ${getZoneRecommendation(zone)}
+              </div>
+            </div>
+          `,
+        });
+
+        infoWindow.open(map);
+        activeInfoWindowRef.current = infoWindow;
+      });
+
+      gridOverlaysRef.current.push(rectangle);
+    });
+  }, [searchResults]);
+
 
   return {
     searchResults,
@@ -669,5 +768,6 @@ export function useMapActions(): UseMapActionsResult {
     clearSearchResults,
     clearDirections,
     loadMoreResults,
+    drawZoneGrid,
   };
 }

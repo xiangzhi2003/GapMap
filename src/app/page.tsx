@@ -25,6 +25,7 @@ export default function Home() {
     clearSearchResults,
     clearDirections,
     loadMoreResults,
+    drawZoneGrid,
   } = useMapActions();
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
@@ -123,6 +124,12 @@ export default function Home() {
     }
   }, [map, loadMoreResults]);
 
+  const handleToggleZoneGrid = useCallback(() => {
+    if (map) {
+      drawZoneGrid(map);
+    }
+  }, [map, drawZoneGrid]);
+
   const handleStreetViewChange = useCallback((inStreetView: boolean) => {
     // Auto-hide sidebar when entering Street View (like Google Maps)
     if (inStreetView) {
@@ -157,6 +164,7 @@ export default function Home() {
         onNewChat={handleNewChat}
         hasMarkers={searchResults.length > 0}
         hasDirections={directionsResult !== null}
+        onToggleZoneGrid={handleToggleZoneGrid}
       />
 
       {/* Map - Full Width */}
