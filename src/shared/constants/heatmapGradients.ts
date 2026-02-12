@@ -28,8 +28,8 @@ export const HEATMAP_GRADIENTS = {
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
   mode: 'off',
-  radius: 30,
-  opacity: 0.7,
-  maxIntensity: 80,
+  radius: 120,       // Increased for smooth zone blending
+  opacity: 0.85,     // Increased for prominent visualization
+  maxIntensity: 100, // Maximum for full color saturation
   dissipating: true,
 };

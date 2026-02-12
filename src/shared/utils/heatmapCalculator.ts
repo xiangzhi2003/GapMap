@@ -1,9 +1,100 @@
 import type { PlaceResult } from '../types/chat';
-import type { WeightedPoint, HeatmapMode, HeatmapZoneAnalysis } from '../types/heatmap';
+import type { WeightedPoint, HeatmapMode, HeatmapZoneAnalysis, GridConfig } from '../types/heatmap';
+import { DEFAULT_GRID_CONFIG } from '../types/heatmap';
 
 /**
- * Calculate competition density weights (higher = more competition)
- * Used for "Competition Density" heatmap mode
+ * Generate a dense grid of weighted points across the map bounds
+ * Uses Inverse Distance Weighting (IDW) for smooth interpolation
+ *
+ * @param bounds - Visible map bounds
+ * @param places - Competitor locations
+ * @param mode - Heatmap mode (competition/opportunity/environment)
+ * @param gridConfig - Grid sampling configuration
+ * @returns Dense array of WeightedPoints (400-900 points typically)
+ */
+export function generateDenseHeatmapGrid(
+  bounds: google.maps.LatLngBounds,
+  places: PlaceResult[],
+  mode: HeatmapMode,
+  gridConfig: GridConfig = DEFAULT_GRID_CONFIG
+): WeightedPoint[] {
+  if (places.length === 0) return [];
+
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+
+  // Calculate grid cell size based on bounds and zoom
+  const latRange = ne.lat() - sw.lat();
+  const lngRange = ne.lng() - sw.lng();
+
+  // Adaptive grid resolution
+  const cellsPerSide = gridConfig.cellsPerSide;
+  const latStep = latRange / cellsPerSide;
+  const lngStep = lngRange / cellsPerSide;
+
+  const gridPoints: WeightedPoint[] = [];
+
+  // Pre-calculate competition scores for all places (for IDW)
+  const competitionScores = places.map(place => {
+    const rating = place.rating || 3;
+    const reviews = place.userRatingsTotal || 1;
+    if (mode === 'opportunity') {
+      // For opportunity mode, lower competition = higher value
+      return 1 / (rating * reviews + 1);
+    } else {
+      // For competition mode, higher competition = higher value
+      return rating * reviews;
+    }
+  });
+
+  // Generate grid cells
+  for (let latIdx = 0; latIdx < cellsPerSide; latIdx++) {
+    for (let lngIdx = 0; lngIdx < cellsPerSide; lngIdx++) {
+      const lat = sw.lat() + (latIdx + 0.5) * latStep;  // Center of cell
+      const lng = sw.lng() + (lngIdx + 0.5) * lngStep;
+      const gridPoint = new google.maps.LatLng(lat, lng);
+
+      // Calculate IDW weight for this grid cell
+      let idwNumerator = 0;
+      let idwDenominator = 0;
+
+      places.forEach((place, idx) => {
+        const placeLatLng = new google.maps.LatLng(place.location.lat, place.location.lng);
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(gridPoint, placeLatLng);
+
+        // Apply smoothing to prevent division by zero for very close points
+        const smoothedDistance = Math.max(distance, gridConfig.idwSmoothing);
+        const weightFactor = 1 / Math.pow(smoothedDistance, gridConfig.idwPower);
+
+        idwNumerator += competitionScores[idx] * weightFactor;
+        idwDenominator += weightFactor;
+      });
+
+      const idwWeight = idwDenominator > 0 ? idwNumerator / idwDenominator : 0;
+
+      gridPoints.push({
+        location: gridPoint,
+        weight: idwWeight  // Will be normalized later
+      });
+    }
+  }
+
+  // Normalize all weights to 0-100 scale
+  const weights = gridPoints.map(p => p.weight);
+  const maxWeight = Math.max(...weights);
+  const minWeight = Math.min(...weights);
+  const range = maxWeight - minWeight || 1;
+
+  return gridPoints.map(p => ({
+    location: p.location,
+    weight: ((p.weight - minWeight) / range) * 100
+  }));
+}
+
+/**
+ * DEPRECATED: Calculate competition density weights (point-based)
+ * Replaced by generateDenseHeatmapGrid() for better area coverage
+ * Kept for backward compatibility
  */
 export function calculateCompetitionWeights(places: PlaceResult[]): WeightedPoint[] {
   const rawWeights = places.map(place => {
@@ -71,11 +162,12 @@ function normalizeWeights(places: PlaceResult[], rawWeights: number[]): Weighted
 
 /**
  * Get adaptive radius based on zoom level
+ * Updated for dense grid heatmap with full area coverage
  */
 export function getZoomBasedRadius(zoom: number): number {
-  if (zoom >= 15) return 20;  // Street level - tight radius
-  if (zoom >= 12) return 30;  // District level - medium radius
-  return 40;                  // City level - broad radius
+  if (zoom >= 15) return 80;   // Street level - large radius
+  if (zoom >= 12) return 120;  // District level - very large radius
+  return 150;                  // City level - maximum radius for full coverage
 }
 
 /**
