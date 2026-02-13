@@ -127,6 +127,8 @@ export async function chat(
       systemInstruction: SYSTEM_INSTRUCTION,
       generationConfig: {
         responseMimeType: 'application/json',
+        // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 

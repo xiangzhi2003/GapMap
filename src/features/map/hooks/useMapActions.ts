@@ -459,8 +459,6 @@ export function useMapActions(): UseMapActionsResult {
           );
           map.panTo(targetLatLng);
           map.setZoom(14); // Standard city-level view
-          // Wait for map animation to complete
-          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (geocodeError) {
         console.warn('Geocoding failed, continuing with search:', geocodeError);

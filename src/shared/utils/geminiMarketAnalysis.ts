@@ -185,34 +185,26 @@ export async function analyzeMarket(request: MarketAnalysisRequest): Promise<Mar
       systemInstruction: MARKET_ANALYSIS_SYSTEM_INSTRUCTION,
       generationConfig: {
         responseMimeType: 'application/json',
+        // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
-    // Build analysis prompt
-    const prompt = `Analyze the market for opening a ${request.businessType} business in ${request.location}.
+    // Build compact analysis prompt — minimize token count for speed
+    const competitorList = request.competitors.map((c, i) => {
+      const parts = [`${i + 1}. ${c.name} | ${c.address} | (${c.lat},${c.lng})`];
+      if (c.rating) parts.push(`${c.rating}★ ${c.reviewCount || 0}r`);
+      const services = [c.delivery && 'D', c.takeout && 'T', c.dineIn && 'DI'].filter(Boolean);
+      if (services.length) parts.push(services.join('/'));
+      return parts.join(' | ');
+    }).join('\n');
 
-User Query: "${request.userQuery}"
+    const prompt = `Analyze ${request.businessType} market in ${request.location}. Query: "${request.userQuery}"
 
-Competitor Data (${request.competitors.length} existing businesses):
-${request.competitors.map((c, i) => `
-${i + 1}. ${c.name}
-   Address: ${c.address}
-   Coordinates: ${c.lat}, ${c.lng}
-   Rating: ${c.rating ? `${c.rating}⭐` : 'No rating'}
-   Reviews: ${c.reviewCount || 0}
-   Types: ${c.types?.join(', ') || 'Unknown'}
-   Services: ${[
-     c.delivery ? 'Delivery' : null,
-     c.takeout ? 'Takeout' : null,
-     c.dineIn ? 'Dine-in' : null,
-   ].filter(Boolean).join(', ') || 'Not specified'}
-   ${c.elevation !== undefined ? `Elevation: ${c.elevation}m` : ''}
-   ${c.aqi !== undefined ? `Air Quality Index: ${c.aqi}` : ''}
-`).join('\n')}
+${request.competitors.length} competitors:
+${competitorList}
 
-IMPORTANT: Use the competitor coordinates above to calculate precise lat/lng/radius for each zone. For red/orange zones, compute the centroid of grouped competitors. For green zones, estimate coordinates based on geographic gaps between competitors. Every zone MUST have lat, lng, and radius fields.
-
-Provide a comprehensive Red/Orange/Green zone analysis with specific street names, coordinates, and strategic recommendations.`;
+Calculate lat/lng/radius for each zone. Centroid for red/orange, geographic gaps for green. Every zone MUST have lat, lng, radius.`;
 
     // Send request to Gemini
     const result = await model.generateContent(prompt);
