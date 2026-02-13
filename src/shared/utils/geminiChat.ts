@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ChatMessage, ChatContext } from '@/shared/types/chat';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ChatMessage, ChatContext } from "@/shared/types/chat";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const SYSTEM_INSTRUCTION = `You are GapMap Intelligence — an AI-powered location strategy advisor that controls a map interface with advanced analytics capabilities.
 
@@ -35,8 +35,34 @@ For search and analyze intents, extract the business category and geographic loc
 - Use map context to disambiguate: If user says "PJ" and map shows Malaysia, use "Petaling Jaya Malaysia"
 
 INTENT RULES:
+
+**CRITICAL INTENT DISAMBIGUATION — SEARCH vs ANALYZE:**
+Most user queries should be SEARCH, not ANALYZE. Use ANALYZE only when the user EXPLICITLY asks for market analysis, competition analysis, or strategic business advice.
+
+SEARCH triggers: "find", "show me", "where is", "look for", "search", "locate", "nearby", "best", "top", "list", "what are"
+ANALYZE triggers: "analyze", "analysis", "market gap", "competition", "should I open", "where to open", "best location to start", "is it worth opening", "competitor check", "saturated", "market opportunity"
+
+If ambiguous, DEFAULT TO SEARCH. Only use analyze when the user clearly wants a strategic business evaluation, not just a list of places.
+
+Examples of SEARCH (NOT analyze):
+- "find gyms in Tokyo" → SEARCH (user wants to see gyms)
+- "coffee shops in Bukit Jalil" → SEARCH (user wants a list)
+- "show me restaurants near KLCC" → SEARCH
+- "best cafes in PJ" → SEARCH (user wants recommendations, not business strategy)
+- "pet cafes nearby" → SEARCH
+- "where can I find a yoga studio" → SEARCH
+
+Examples of ANALYZE (NOT search):
+- "analyze the gym market in Tokyo" → ANALYZE
+- "should I open a cafe in Bukit Jalil" → ANALYZE
+- "is the restaurant market saturated in KLCC" → ANALYZE
+- "where is the best location to start a bakery" → ANALYZE
+- "check competition for gyms in PJ" → ANALYZE
+- "market gap for coffee shops in Subang" → ANALYZE
+
 1. SEARCH — User wants to find/see/locate places:
    - intent="search", query="precise Google Maps query", directions=null
+   - **This is the DEFAULT intent for place-related queries**
    - **Extract category and location separately** for smart map panning
    - Refine vague queries into specific searchable terms
    - **LOCATION PRECISION**: When user specifies a location, ONLY show results from that exact area
@@ -50,8 +76,10 @@ INTENT RULES:
    - If only destination given, use "Current Location" as origin
    - The system provides advanced route analysis with alternative routes
 
-3. ANALYZE — User wants market analysis, competition check, or best location advice:
+3. ANALYZE — User EXPLICITLY wants market/competition analysis for a business venture:
    - intent="analyze", query="the business type + area to search", directions=null
+   - **ONLY use this when the user explicitly asks for analysis, market gaps, competition check, or strategic advice about opening a business**
+   - **DO NOT use this for simple "find X" or "show me X" queries — those are SEARCH**
    - **Extract category and location separately** for intelligent analysis
    - In your reply, provide BRIEF acknowledgment (1-2 sentences)
    - The system will automatically generate a detailed Market Analysis Card with:
@@ -110,67 +138,67 @@ EXAMPLES:
 `;
 
 interface ChatResponse {
-  intent: 'search' | 'directions' | 'analyze' | 'accessibility' | 'chat';
-  query: string | null;
-  directions: { origin: string; destination: string } | null;
-  reply: string;
-  category?: string | null;
-  location?: string | null;
+    intent: "search" | "directions" | "analyze" | "accessibility" | "chat";
+    query: string | null;
+    directions: { origin: string; destination: string } | null;
+    reply: string;
+    category?: string | null;
+    location?: string | null;
 }
 
 export async function chat(
-  userMessage: string,
-  history: ChatMessage[] = [],
-  mapContext?: ChatContext
+    userMessage: string,
+    history: ChatMessage[] = [],
+    mapContext?: ChatContext
 ): Promise<ChatResponse> {
-  try {
-    // Configure Model with System Instruction & JSON Mode
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_INSTRUCTION,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    });
+    try {
+        // Configure Model with System Instruction & JSON Mode
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: SYSTEM_INSTRUCTION,
+            generationConfig: {
+                responseMimeType: "application/json",
+                // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
+                thinkingConfig: { thinkingBudget: 0 },
+            },
+        });
 
-    // Build context message with map location if available
-    let contextMessage = userMessage;
-    if (mapContext?.center && mapContext?.zoom) {
-      contextMessage += `\n\n[Map Context: Center at ${mapContext.center.lat},${mapContext.center.lng}, Zoom ${mapContext.zoom}]`;
+        // Build context message with map location if available
+        let contextMessage = userMessage;
+        if (mapContext?.center && mapContext?.zoom) {
+            contextMessage += `\n\n[Map Context: Center at ${mapContext.center.lat},${mapContext.center.lng}, Zoom ${mapContext.zoom}]`;
+        }
+
+        // Start chat with cleaned history
+        const chatSession = model.startChat({
+            history: history.map((msg) => ({
+                role: msg.role === "user" ? "user" : "model",
+                parts: [{ text: msg.content }],
+            })),
+        });
+
+        // Send message and get response
+        const result = await chatSession.sendMessage(contextMessage);
+        const responseText = result.response.text();
+
+        // Parse and return JSON
+        const parsed = JSON.parse(responseText);
+
+        return {
+            intent: parsed.intent || "chat",
+            query: parsed.query || null,
+            directions: parsed.directions || null,
+            reply: parsed.reply || "I encountered an issue. Please try again.",
+            category: parsed.category || null,
+            location: parsed.location || null,
+        };
+    } catch (error) {
+        console.error("Gemini chat error:", error);
+        return {
+            intent: "chat",
+            query: null,
+            directions: null,
+            reply: "I apologize, but I encountered an error processing your request. Please try again.",
+        };
     }
-
-    // Start chat with cleaned history
-    const chatSession = model.startChat({
-      history: history.map((msg) => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }],
-      })),
-    });
-
-    // Send message and get response
-    const result = await chatSession.sendMessage(contextMessage);
-    const responseText = result.response.text();
-
-    // Parse and return JSON
-    const parsed = JSON.parse(responseText);
-
-    return {
-      intent: parsed.intent || 'chat',
-      query: parsed.query || null,
-      directions: parsed.directions || null,
-      reply: parsed.reply || 'I encountered an issue. Please try again.',
-      category: parsed.category || null,
-      location: parsed.location || null,
-    };
-  } catch (error) {
-    console.error('Gemini chat error:', error);
-    return {
-      intent: 'chat',
-      query: null,
-      directions: null,
-      reply: 'I apologize, but I encountered an error processing your request. Please try again.',
-    };
-  }
 }
