@@ -1,104 +1,120 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
-import { ChatMessage, ChatContext, ChatApiResponse } from '@/shared/types/chat';
+import { useState, useCallback } from "react";
+import { ChatMessage, ChatContext, ChatApiResponse } from "@/shared/types/chat";
 
 interface UseChatResult {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  error: string | null;
-  sendMessage: (content: string, mapContext?: ChatContext) => Promise<ChatApiResponse | undefined>;
-  addMessage: (message: ChatMessage) => void;
-  clearMessages: () => void;
+    messages: ChatMessage[];
+    isLoading: boolean;
+    error: string | null;
+    sendMessage: (
+        content: string,
+        mapContext?: ChatContext
+    ) => Promise<ChatApiResponse | undefined>;
+    addMessage: (message: ChatMessage) => void;
+    clearMessages: () => void;
 }
 
 export function useChat(): UseChatResult {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, mapContext?: ChatContext): Promise<ChatApiResponse | undefined> => {
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content,
-      timestamp: new Date(),
+    const sendMessage = useCallback(
+        async (
+            content: string,
+            mapContext?: ChatContext
+        ): Promise<ChatApiResponse | undefined> => {
+            const userMessage: ChatMessage = {
+                id: `user-${Date.now()}`,
+                role: "user",
+                content,
+                timestamp: new Date(),
+            };
+
+            setMessages((prev) => [...prev, userMessage]);
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                // Clean history: only send role, content, timestamp (as ISO string)
+                const cleanedHistory = messages.map((msg) => ({
+                    id: msg.id,
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.timestamp.toISOString(),
+                }));
+
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: content,
+                        history: cleanedHistory,
+                        mapContext,
+                    }),
+                });
+
+                const data: ChatApiResponse = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        (data as unknown as { error: string }).error ||
+                            "Failed to get response"
+                    );
+                }
+
+                // For 'analyze' intent, don't add a plain-text reply here.
+                // The styled MarketAnalysisCard will be added separately by page.tsx via addMessage().
+                if (data.intent !== "analyze") {
+                    const assistantMessage: ChatMessage = {
+                        id: `assistant-${Date.now()}`,
+                        role: "assistant",
+                        content: data.reply,
+                        timestamp: new Date(),
+                    };
+
+                    setMessages((prev) => [...prev, assistantMessage]);
+                }
+
+                // Return full response for map handling
+                return data;
+            } catch (err) {
+                const errorMessage =
+                    err instanceof Error ? err.message : "Something went wrong";
+                setError(errorMessage);
+
+                // Add error message to chat
+                const errorAssistantMessage: ChatMessage = {
+                    id: `assistant-error-${Date.now()}`,
+                    role: "assistant",
+                    content: `Error: ${errorMessage}`,
+                    timestamp: new Date(),
+                };
+                setMessages((prev) => [...prev, errorAssistantMessage]);
+                return undefined;
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [messages]
+    );
+
+    const addMessage = useCallback((message: ChatMessage) => {
+        setMessages((prev) => [...prev, message]);
+    }, []);
+
+    const clearMessages = useCallback(() => {
+        setMessages([]);
+        setError(null);
+    }, []);
+
+    return {
+        messages,
+        isLoading,
+        error,
+        sendMessage,
+        addMessage,
+        clearMessages,
     };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Clean history: only send role, content, timestamp (as ISO string)
-      const cleanedHistory = messages.map(msg => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp.toISOString()
-      }));
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: content,
-          history: cleanedHistory,
-          mapContext,
-        }),
-      });
-
-      const data: ChatApiResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error((data as unknown as { error: string }).error || 'Failed to get response');
-      }
-
-      // Store ONLY clean message - no extra fields
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: data.reply,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Return full response for map handling
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
-      setError(errorMessage);
-
-      // Add error message to chat
-      const errorAssistantMessage: ChatMessage = {
-        id: `assistant-error-${Date.now()}`,
-        role: 'assistant',
-        content: `Error: ${errorMessage}`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorAssistantMessage]);
-      return undefined;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [messages]);
-
-  const addMessage = useCallback((message: ChatMessage) => {
-    setMessages((prev) => [...prev, message]);
-  }, []);
-
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    setError(null);
-  }, []);
-
-  return {
-    messages,
-    isLoading,
-    error,
-    sendMessage,
-    addMessage,
-    clearMessages,
-  };
 }
