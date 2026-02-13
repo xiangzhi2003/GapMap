@@ -238,6 +238,16 @@ export default function Map({
         center: DEFAULT_CENTER,
         zoom: DEFAULT_ZOOM,
         styles: LIGHT_MAP_STYLES,
+        // Clamp to Web Mercator bounds to avoid empty pole bands.
+        restriction: {
+          latLngBounds: {
+            north: 85,
+            south: -85,
+            west: -180,
+            east: 180,
+          },
+          strictBounds: true,
+        },
         // Enable all standard Google Maps controls
         disableDefaultUI: false,
         zoomControl: true,
