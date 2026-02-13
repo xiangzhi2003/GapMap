@@ -17,14 +17,8 @@ export default function Home() {
     const [aiZones, setAiZones] = useState<AnalysisCardData | null>(null);
     const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false);
 
-    const {
-        messages,
-        isLoading,
-        sendMessage,
-        addMessage,
-        replaceLastAssistantMessage,
-        clearMessages,
-    } = useChat();
+    const { messages, isLoading, sendMessage, addMessage, clearMessages } =
+        useChat();
     const { analyzeMarket } = useMarketAnalysis();
     const {
         searchResults,
@@ -86,8 +80,8 @@ export default function Home() {
                     // Trigger market analysis for "analyze" intent
                     if (result.intent === "analyze") {
                         if (places.length === 0) {
-                            // No competitors — replace the initial reply with a helpful message
-                            replaceLastAssistantMessage({
+                            // No competitors — add a helpful message
+                            addMessage({
                                 id: `analysis-fallback-${Date.now()}`,
                                 role: "assistant",
                                 content: `I couldn't find any ${
@@ -112,8 +106,8 @@ export default function Home() {
                                     renderAIZones(analysis.analysis, map);
                                     setAiZones(analysis.analysis);
 
-                                    // Replace the plain-text reply with the styled analysis card
-                                    replaceLastAssistantMessage({
+                                    // Add the styled analysis card as a new message (keeps the initial reply above)
+                                    addMessage({
                                         id: `analysis-${Date.now()}`,
                                         role: "assistant",
                                         content: "",
@@ -121,7 +115,7 @@ export default function Home() {
                                         analysisData: analysis.analysis,
                                     });
                                 } else {
-                                    replaceLastAssistantMessage({
+                                    addMessage({
                                         id: `analysis-error-${Date.now()}`,
                                         role: "assistant",
                                         content:
@@ -164,7 +158,6 @@ export default function Home() {
             analyzeAccessibility,
             analyzeMarket,
             addMessage,
-            replaceLastAssistantMessage,
             setHeatmapMode,
             renderAIZones,
         ]

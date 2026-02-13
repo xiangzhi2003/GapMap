@@ -12,7 +12,6 @@ interface UseChatResult {
         mapContext?: ChatContext
     ) => Promise<ChatApiResponse | undefined>;
     addMessage: (message: ChatMessage) => void;
-    replaceLastAssistantMessage: (message: ChatMessage) => void;
     clearMessages: () => void;
 }
 
@@ -111,19 +110,6 @@ export function useChat(): UseChatResult {
         setMessages((prev) => [...prev, message]);
     }, []);
 
-    // Replace the last assistant message (used to swap plain-text reply with styled analysis card)
-    const replaceLastAssistantMessage = useCallback((message: ChatMessage) => {
-        setMessages((prev) => {
-            const lastAssistantIdx = prev.findLastIndex(
-                (m) => m.role === "assistant"
-            );
-            if (lastAssistantIdx === -1) return [...prev, message];
-            const updated = [...prev];
-            updated[lastAssistantIdx] = message;
-            return updated;
-        });
-    }, []);
-
     const clearMessages = useCallback(() => {
         setMessages([]);
         setError(null);
@@ -135,7 +121,6 @@ export function useChat(): UseChatResult {
         error,
         sendMessage,
         addMessage,
-        replaceLastAssistantMessage,
         clearMessages,
     };
 }
