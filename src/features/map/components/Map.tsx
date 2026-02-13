@@ -203,6 +203,9 @@ export default function Map({
   aiZones = null,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const miniMapRef = useRef<HTMLDivElement>(null);
+  const miniMapInstanceRef = useRef<google.maps.Map | null>(null);
+  const miniMapMarkerRef = useRef<google.maps.Marker | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const routeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -348,6 +351,52 @@ export default function Map({
 
     return () => clearTimeout(timer);
   }, [initMap]);
+
+  // Mini-map for Street View — shows current position on a small overview map
+  useEffect(() => {
+    if (!isStreetView || !streetViewCoords || !miniMapRef.current) {
+      // Clean up when leaving Street View
+      if (miniMapMarkerRef.current) {
+        miniMapMarkerRef.current.setMap(null);
+        miniMapMarkerRef.current = null;
+      }
+      miniMapInstanceRef.current = null;
+      return;
+    }
+
+    const pos = streetViewCoords;
+
+    // Initialize mini-map if not yet created
+    if (!miniMapInstanceRef.current) {
+      miniMapInstanceRef.current = new google.maps.Map(miniMapRef.current, {
+        center: pos,
+        zoom: 16,
+        disableDefaultUI: true,
+        gestureHandling: 'none',
+        clickableIcons: false,
+        styles: LIGHT_MAP_STYLES,
+      });
+
+      miniMapMarkerRef.current = new google.maps.Marker({
+        map: miniMapInstanceRef.current,
+        position: pos,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#FBBC04',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 3,
+        },
+      });
+    } else {
+      // Update existing mini-map position
+      miniMapInstanceRef.current.panTo(pos);
+      if (miniMapMarkerRef.current) {
+        miniMapMarkerRef.current.setPosition(pos);
+      }
+    }
+  }, [isStreetView, streetViewCoords]);
 
   // Show route info as an InfoWindow anchored to the route midpoint
   useEffect(() => {
@@ -507,7 +556,20 @@ export default function Map({
         </div>
       )}
 
-
+      {/* Mini-map during Street View */}
+      <AnimatePresence>
+        {isStreetView && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.25 }}
+            className="absolute bottom-6 left-6 z-[100] w-[200px] h-[150px] rounded-lg overflow-hidden border-2 border-white/30 shadow-2xl"
+          >
+            <div ref={miniMapRef} className="w-full h-full" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error message overlay */}
       {mapError && (
@@ -536,7 +598,7 @@ export default function Map({
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="absolute bottom-4 right-4 bg-[#12121a]/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-cyan-500/30"
+          className="absolute bottom-6 right-15 bg-[#12121a]/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-cyan-500/30"
         >
           <p className="text-xs font-mono text-cyan-400">
             {searchResults.length} places found
