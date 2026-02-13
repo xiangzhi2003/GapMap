@@ -56,6 +56,32 @@ body {
   border-radius: 12px !important;
   padding: 0 !important;
   box-shadow: 0 0 20px rgba(0, 240, 255, 0.2) !important;
+  color: #e5e7eb;
+}
+
+.gm-style-iw {
+  color: #e5e7eb;
+}
+
+.gm-style-iw-d,
+.gm-style-iw-d div,
+.gm-style-iw-d span,
+.gm-style-iw-d a {
+  color: #e5e7eb;
+}
+
+.gm-iw,
+.gm-iw * {
+  color: #e5e7eb !important;
+}
+
+.gm-iw {
+  padding: 10px 12px;
+}
+
+.gm-style-iw-c .gm-ui-hover-effect {
+  top: 6px !important;
+  right: 6px !important;
 }
 
 .gm-style-iw-tc::after {
