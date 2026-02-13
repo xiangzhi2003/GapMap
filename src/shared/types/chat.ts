@@ -6,12 +6,21 @@ export interface ChatMessage {
   analysisData?: AnalysisCardData;
 }
 
+export interface MarketZone {
+  name: string;
+  reason: string;
+  count?: number;
+  lat: number;
+  lng: number;
+  radius: number; // meters
+}
+
 export interface AnalysisCardData {
   businessType: string;
   location: string;
-  redZones: { name: string; reason: string; count?: number }[];
-  orangeZones: { name: string; reason: string; count?: number }[];
-  greenZones: { name: string; reason: string; count?: number }[];
+  redZones: MarketZone[];
+  orangeZones: MarketZone[];
+  greenZones: MarketZone[];
   recommendation: string;
 }
 

@@ -20,16 +20,32 @@ You must respond with a JSON object using this schema:
   "businessType": "the business type being analyzed",
   "location": "the geographic area",
   "redZones": [
-    { "name": "specific area/street name", "reason": "why it's saturated", "count": number_of_competitors }
+    { "name": "specific area/street name", "reason": "why it's saturated", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters }
   ],
   "orangeZones": [
-    { "name": "specific area/street name", "reason": "moderate competition details", "count": number_of_competitors }
+    { "name": "specific area/street name", "reason": "moderate competition details", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters }
   ],
   "greenZones": [
-    { "name": "specific area/street name", "reason": "opportunity explanation", "count": number_of_competitors }
+    { "name": "specific area/street name", "reason": "opportunity explanation", "count": number_of_competitors, "lat": estimated_latitude, "lng": estimated_longitude, "radius": radius_in_meters }
   ],
   "recommendation": "strategic recommendation with actionable insights (2-3 sentences)"
 }
+
+ZONE COORDINATE REQUIREMENTS (CRITICAL):
+Every zone MUST include "lat", "lng", and "radius" fields. These are used to draw circles on the map.
+
+For RED/ORANGE zones (where competitors exist):
+- Calculate the centroid (average lat/lng) of all competitors you grouped into that zone.
+- Set radius to encompass those competitors (use the max distance from centroid to any competitor × 1.3). Minimum 400m, maximum 1200m.
+
+For GREEN zones (market gaps with 0-1 competitors):
+- Estimate the coordinates based on the described location relative to known competitor positions.
+- Use geographic reasoning: 1 degree of latitude ≈ 111km, so 1km north ≈ +0.009 latitude.
+- Example: If competitors cluster around (3.05, 101.67) and the green zone is "2km north", use lat ≈ 3.068, lng ≈ 101.67.
+- Radius: 500-800m for green zones.
+
+Coordinate precision: Use 6 decimal places (e.g., 3.063872). Radius in whole meters (e.g., 650).
+Ensure zones do NOT overlap each other significantly — space them apart.
 
 ANALYSIS FRAMEWORK:
 
@@ -90,37 +106,37 @@ CRITICAL ANALYSIS RULES:
 
 EXAMPLES:
 
-Input: 15 gyms in Bukit Jalil, Malaysia
+Input: 15 gyms in Bukit Jalil, Malaysia (competitors centered around 3.058, 101.680)
 Output:
 {
   "businessType": "gyms",
   "location": "Bukit Jalil",
   "redZones": [
-    { "name": "Pavilion Bukit Jalil vicinity", "reason": "8 established gyms within 500m including Celebrity Fitness and Fitness First (4.2+ ratings, 200+ reviews each)", "count": 8 },
-    { "name": "Jalan Jalil Perkasa area", "reason": "4 competing gyms, all with strong online presence and modern facilities", "count": 4 }
+    { "name": "Pavilion Bukit Jalil vicinity", "reason": "8 established gyms within 500m including Celebrity Fitness and Fitness First (4.2+ ratings, 200+ reviews each)", "count": 8, "lat": 3.063872, "lng": 101.682956, "radius": 600 },
+    { "name": "Jalan Jalil Perkasa area", "reason": "4 competing gyms, all with strong online presence and modern facilities", "count": 4, "lat": 3.057234, "lng": 101.678123, "radius": 500 }
   ],
   "orangeZones": [
-    { "name": "Bukit Jalil Recreation Park area", "reason": "2 gyms but both have <3.8 ratings and limited class offerings - quality differentiation opportunity", "count": 2 }
+    { "name": "Bukit Jalil Recreation Park area", "reason": "2 gyms but both have <3.8 ratings and limited class offerings - quality differentiation opportunity", "count": 2, "lat": 3.065123, "lng": 101.675456, "radius": 550 }
   ],
   "greenZones": [
-    { "name": "Sri Petaling residential zone (north)", "reason": "No gyms within 2km despite high-density condominiums (Sri Petaling, Endah Regal). Nearest competitor is 2.5km away.", "count": 0 },
-    { "name": "Taman Bukit Jalil (east side)", "reason": "Only 1 budget gym with 3.2 rating. Premium gym opportunity with classes and personal training.", "count": 1 }
+    { "name": "Sri Petaling residential zone", "reason": "No gyms within 2km despite high-density condominiums (Sri Petaling, Endah Regal). Nearest competitor is 2.5km away.", "count": 0, "lat": 3.078500, "lng": 101.681234, "radius": 700 },
+    { "name": "Taman Bukit Jalil (east)", "reason": "Only 1 budget gym with 3.2 rating. Premium gym opportunity with classes and personal training.", "count": 1, "lat": 3.061234, "lng": 101.695678, "radius": 650 }
   ],
   "recommendation": "Target the Sri Petaling residential corridor or eastern Taman Bukit Jalil. Both areas have underserved populations >2km from quality gyms. Consider positioning as a premium boutique gym with classes, as existing competitors focus on equipment-only models."
 }
 
-Input: 3 cafes in a small town
+Input: 3 cafes in a small town (competitors centered around 5.320, 103.130)
 Output:
 {
   "businessType": "cafes",
   "location": "Small Town Area",
   "redZones": [],
   "orangeZones": [
-    { "name": "Main Street commercial area", "reason": "3 established cafes with 4.0+ ratings, but all close by 6 PM - evening/night cafe opportunity", "count": 3 }
+    { "name": "Main Street commercial area", "reason": "3 established cafes with 4.0+ ratings, but all close by 6 PM - evening/night cafe opportunity", "count": 3, "lat": 5.320100, "lng": 103.130200, "radius": 500 }
   ],
   "greenZones": [
-    { "name": "North residential area near park", "reason": "No cafes within 1.5km. High foot traffic from park visitors on weekends.", "count": 0 },
-    { "name": "East side near university", "reason": "No cafes despite student population. Delivery and late-night service gap.", "count": 0 }
+    { "name": "North residential area near park", "reason": "No cafes within 1.5km. High foot traffic from park visitors on weekends.", "count": 0, "lat": 5.333500, "lng": 103.130000, "radius": 600 },
+    { "name": "East side near university", "reason": "No cafes despite student population. Delivery and late-night service gap.", "count": 0, "lat": 5.319800, "lng": 103.143000, "radius": 650 }
   ],
   "recommendation": "Open near the university on the east side with extended hours (7 AM - 11 PM) and delivery service. Existing cafes don't serve students or night customers, creating a clear market gap."
 }
@@ -194,7 +210,9 @@ ${i + 1}. ${c.name}
    ${c.aqi !== undefined ? `Air Quality Index: ${c.aqi}` : ''}
 `).join('\n')}
 
-Provide a comprehensive Red/Orange/Green zone analysis with specific street names and strategic recommendations.`;
+IMPORTANT: Use the competitor coordinates above to calculate precise lat/lng/radius for each zone. For red/orange zones, compute the centroid of grouped competitors. For green zones, estimate coordinates based on geographic gaps between competitors. Every zone MUST have lat, lng, and radius fields.
+
+Provide a comprehensive Red/Orange/Green zone analysis with specific street names, coordinates, and strategic recommendations.`;
 
     // Send request to Gemini
     const result = await model.generateContent(prompt);

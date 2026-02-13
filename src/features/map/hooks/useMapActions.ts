@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { PlaceResult } from '@/shared/types/chat';
+import { PlaceResult, AnalysisCardData } from '@/shared/types/chat';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { renderRichInfoWindow } from '@/shared/utils/infoWindowRenderer';
 import { getCategoryColor } from '@/shared/utils/markerIcons';
@@ -19,20 +19,20 @@ interface UseMapActionsResult {
   isSearching: boolean;
   directionsResult: google.maps.DirectionsResult | null;
   recentSearches: string[];
-  hasMoreResults: boolean;
   selectedRouteIndex: number;
   searchPlaces: (query: string, map: google.maps.Map, structured?: { category?: string | null; location?: string | null }) => Promise<PlaceResult[]>;
   getDirections: (origin: string, destination: string, map: google.maps.Map, travelMode?: google.maps.TravelMode) => Promise<void>;
   analyzeAccessibility: (query: string, map: google.maps.Map) => Promise<void>;
   clearSearchResults: () => void;
   clearDirections: () => void;
-  loadMoreResults: (map: google.maps.Map) => Promise<void>;
   heatmapMode: HeatmapMode;
   setHeatmapMode: (mode: HeatmapMode) => void;
   updateZoneOverlays: (places: PlaceResult[], mode: HeatmapMode, map: google.maps.Map) => Promise<void>;
   showMarkersWithHeatmap: boolean;
   setShowMarkersWithHeatmap: (show: boolean) => void;
   zoneClusters: ZoneCluster[];
+  renderAIZones: (analysisData: AnalysisCardData, map: google.maps.Map) => void;
+  triggerMarkerClick: (placeId: string) => void;
 }
 
 export function useMapActions(): UseMapActionsResult {
@@ -40,7 +40,6 @@ export function useMapActions(): UseMapActionsResult {
   const [isSearching, setIsSearching] = useState(false);
   const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [placeDetailsCache, setPlaceDetailsCache] = useState<Record<string, PlaceResult>>({});
   const [accessibilityResult, setAccessibilityResult] = useState<AccessibilityAnalysis | null>(null);
   const [routeAnalysis, setRouteAnalysis] = useState<AdvancedRouteResult | null>(null);
@@ -54,11 +53,14 @@ export function useMapActions(): UseMapActionsResult {
   const zoneCirclesRef = useRef<google.maps.Circle[]>([]);
   const zoneLabelsRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
-  const paginationRef = useRef<google.maps.places.PlaceSearchPagination | null>(null);
   const activeInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const searchGenerationRef = useRef<number>(0);
   const altPolylinesRef = useRef<google.maps.Polyline[]>([]);
   const altLabelsRef = useRef<google.maps.InfoWindow[]>([]);
+  const aiZoneCirclesRef = useRef<google.maps.Circle[]>([]);
+  const aiZoneLabelsRef = useRef<google.maps.Marker[]>([]);
+  const pulseIntervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const markerByPlaceIdRef = useRef<Record<string, google.maps.Marker>>({});
 
   const clearMarkers = useCallback(() => {
     // Close active InfoWindow
@@ -76,6 +78,7 @@ export function useMapActions(): UseMapActionsResult {
     // Clear all markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
+    markerByPlaceIdRef.current = {};
 
     // Clear zone circles
     zoneCirclesRef.current.forEach(circle => circle.setMap(null));
@@ -84,6 +87,18 @@ export function useMapActions(): UseMapActionsResult {
     // Clear zone labels
     zoneLabelsRef.current.forEach(label => label.setMap(null));
     zoneLabelsRef.current = [];
+
+    // Clear AI zone circles
+    aiZoneCirclesRef.current.forEach(circle => circle.setMap(null));
+    aiZoneCirclesRef.current = [];
+
+    // Clear AI zone labels
+    aiZoneLabelsRef.current.forEach(label => label.setMap(null));
+    aiZoneLabelsRef.current = [];
+
+    // Clear pulsing intervals
+    pulseIntervalsRef.current.forEach(interval => clearInterval(interval));
+    pulseIntervalsRef.current = [];
   }, []);
 
   const clearDirections = useCallback(() => {
@@ -102,8 +117,6 @@ export function useMapActions(): UseMapActionsResult {
 
   const clearSearchResults = useCallback(() => {
     setSearchResults([]);
-    setNextPageToken(null);
-    paginationRef.current = null;
     setAccessibilityResult(null);
     clearMarkers();
   }, [clearMarkers]);
@@ -542,13 +555,12 @@ export function useMapActions(): UseMapActionsResult {
               setSearchResults(places);
             }
 
-            // Store pagination token
+            // Auto-fetch next page if available (Google returns max 20/page, 60 total)
             if (pagination?.hasNextPage) {
-              paginationRef.current = pagination;
-              setNextPageToken('available');
-            } else {
-              paginationRef.current = null;
-              setNextPageToken(null);
+              setTimeout(() => {
+                isPaginatingRef.current = true;
+                pagination.nextPage();
+              }, 2000); // Google enforces ~2s delay between pages
             }
 
             // Add markers for results
@@ -626,6 +638,7 @@ export function useMapActions(): UseMapActionsResult {
               });
 
               markersRef.current.push(marker);
+              markerByPlaceIdRef.current[place.placeId] = marker;
               bounds.extend(place.location);
             });
 
@@ -662,8 +675,6 @@ export function useMapActions(): UseMapActionsResult {
             resolve(places);
           } else {
             setSearchResults([]);
-            setNextPageToken(null);
-            paginationRef.current = null;
             resolve([]);
           }
           setIsSearching(false);
@@ -680,22 +691,6 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, [clearMarkers, getPlaceDetails, heatmapMode, updateZoneOverlays]);
 
-  const loadMoreResults = useCallback(async (map: google.maps.Map): Promise<void> => {
-    void map;
-    if (!paginationRef.current || !paginationRef.current.hasNextPage) return;
-
-    setIsSearching(true);
-    isPaginatingRef.current = true;
-
-    try {
-      // nextPage() will trigger the same callback from the original textSearch
-      paginationRef.current.nextPage();
-    } catch (error) {
-      console.error('Load more error:', error);
-      setIsSearching(false);
-      isPaginatingRef.current = false;
-    }
-  }, []);
 
   const drawAlternativeRoutes = useCallback((
     map: google.maps.Map,
@@ -889,24 +884,191 @@ export function useMapActions(): UseMapActionsResult {
     }
   }, [searchPlaces]);
 
+  /**
+   * Render zone overlays using AI-returned coordinates.
+   * Replaces clustering-based overlays for the analyze flow.
+   */
+  const renderAIZones = useCallback((
+    analysisData: AnalysisCardData,
+    map: google.maps.Map
+  ) => {
+    // Clear existing AI zone overlays
+    aiZoneCirclesRef.current.forEach(c => c.setMap(null));
+    aiZoneCirclesRef.current = [];
+    aiZoneLabelsRef.current.forEach(l => l.setMap(null));
+    aiZoneLabelsRef.current = [];
+    pulseIntervalsRef.current.forEach(interval => clearInterval(interval));
+    pulseIntervalsRef.current = [];
+
+    // Also clear old clustering-based zones
+    zoneCirclesRef.current.forEach(c => c.setMap(null));
+    zoneCirclesRef.current = [];
+    zoneLabelsRef.current.forEach(l => l.setMap(null));
+    zoneLabelsRef.current = [];
+
+    const allZones = [
+      ...analysisData.redZones.map(z => ({ ...z, level: 'red' as const })),
+      ...analysisData.orangeZones.map(z => ({ ...z, level: 'orange' as const })),
+      ...analysisData.greenZones.map(z => ({ ...z, level: 'green' as const })),
+    ];
+
+    if (allZones.length === 0) return;
+
+    const colorMap = {
+      red: { fill: '#ef4444', stroke: '#dc2626' },
+      orange: { fill: '#f59e0b', stroke: '#d97706' },
+      green: { fill: '#22c55e', stroke: '#16a34a' },
+    };
+
+    const levelLabels = {
+      red: 'HIGH SATURATION',
+      orange: 'MODERATE COMPETITION',
+      green: 'OPPORTUNITY ZONE',
+    };
+
+    const bounds = new google.maps.LatLngBounds();
+
+    for (const zone of allZones) {
+      // Skip zones without valid coordinates
+      if (!zone.lat || !zone.lng || !zone.radius) continue;
+
+      const colors = colorMap[zone.level];
+      const center = { lat: zone.lat, lng: zone.lng };
+      const isGreen = zone.level === 'green';
+
+      bounds.extend(center);
+      // Extend bounds to include circle edge
+      const earthRadius = 6371000;
+      const latOffset = (zone.radius / earthRadius) * (180 / Math.PI);
+      const lngOffset = latOffset / Math.cos(zone.lat * Math.PI / 180);
+      bounds.extend({ lat: zone.lat + latOffset, lng: zone.lng + lngOffset });
+      bounds.extend({ lat: zone.lat - latOffset, lng: zone.lng - lngOffset });
+
+      const circle = new google.maps.Circle({
+        center,
+        radius: zone.radius,
+        map,
+        fillColor: colors.fill,
+        fillOpacity: isGreen ? 0.4 : 0.3,
+        strokeColor: colors.stroke,
+        strokeOpacity: 0.6,
+        strokeWeight: 2,
+        clickable: true,
+        zIndex: isGreen ? 15 : 10,
+      });
+
+      // Pulsing animation for green zones
+      if (isGreen) {
+        let increasing = false;
+        const interval = setInterval(() => {
+          const current = circle.get('fillOpacity') as number;
+          const next = increasing
+            ? Math.min(0.55, current + 0.05)
+            : Math.max(0.25, current - 0.05);
+          circle.set('fillOpacity', next);
+          if (next >= 0.55) increasing = false;
+          if (next <= 0.25) increasing = true;
+        }, 80);
+        pulseIntervalsRef.current.push(interval);
+      }
+
+      // Click handler — show AI reasoning in InfoWindow
+      circle.addListener('click', () => {
+        if (activeInfoWindowRef.current) {
+          activeInfoWindowRef.current.close();
+        }
+
+        const escapedName = zone.name.replace(/'/g, "\\'");
+        const infoWindow = new google.maps.InfoWindow({
+          position: center,
+          content: `
+            <div style="padding:16px;min-width:280px;max-width:350px;color:#fff;font-family:'Geist Sans',sans-serif;">
+              <div style="font-weight:bold;font-size:16px;margin-bottom:4px;color:${colors.fill};">
+                ${zone.name}
+              </div>
+              <div style="font-size:12px;color:#9ca3af;margin-bottom:12px;">
+                ${levelLabels[zone.level]} ${zone.count !== undefined ? `&mdash; ${zone.count} competitor${zone.count !== 1 ? 's' : ''}` : ''}
+              </div>
+
+              <div style="border-top:1px solid #2a2a3a;padding-top:10px;margin-bottom:10px;">
+                <div style="font-size:11px;color:#00f0ff;font-weight:600;margin-bottom:6px;">AI Analysis</div>
+                <div style="font-size:12px;color:#d1d5db;line-height:1.5;">
+                  ${zone.reason}
+                </div>
+              </div>
+
+              <div style="border-top:1px solid #2a2a3a;padding-top:10px;">
+                <button onclick="window.__analyzeZone && window.__analyzeZone('${escapedName}', '${zone.level}', ${zone.count || 0}, 50)"
+                  style="width:100%;padding:8px 12px;background:linear-gradient(135deg,#00f0ff22,#00f0ff11);border:1px solid #00f0ff44;border-radius:8px;color:#00f0ff;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;"
+                  onmouseover="this.style.background='linear-gradient(135deg,#00f0ff33,#00f0ff22)';this.style.borderColor='#00f0ff66'"
+                  onmouseout="this.style.background='linear-gradient(135deg,#00f0ff22,#00f0ff11)';this.style.borderColor='#00f0ff44'">
+                  🤖 Ask AI: Deep-Dive Analysis
+                </button>
+              </div>
+            </div>
+          `,
+        });
+        infoWindow.open(map);
+        activeInfoWindowRef.current = infoWindow;
+      });
+
+      aiZoneCirclesRef.current.push(circle);
+
+      // Label marker at center of circle
+      const label = new google.maps.Marker({
+        position: center,
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 0,
+        },
+        label: {
+          text: isGreen ? `⭐ ${zone.name}` : `${zone.name} (${zone.count ?? 0})`,
+          color: '#ffffff',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          className: 'zone-label',
+        },
+        clickable: false,
+        zIndex: 20,
+      });
+      aiZoneLabelsRef.current.push(label);
+    }
+
+    // Fit map to show all AI zones
+    map.fitBounds(bounds);
+    const listener = google.maps.event.addListener(map, 'idle', () => {
+      const zoom = map.getZoom();
+      if (zoom && zoom > 15) map.setZoom(15);
+      google.maps.event.removeListener(listener);
+    });
+  }, []);
+
+  const triggerMarkerClick = useCallback((placeId: string) => {
+    const marker = markerByPlaceIdRef.current[placeId];
+    if (marker) {
+      google.maps.event.trigger(marker, 'click');
+    }
+  }, []);
+
   return {
     searchResults,
     isSearching,
     directionsResult,
     recentSearches,
-    hasMoreResults: nextPageToken !== null,
     selectedRouteIndex,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
     clearSearchResults,
     clearDirections,
-    loadMoreResults,
     heatmapMode,
     setHeatmapMode,
     updateZoneOverlays,
     showMarkersWithHeatmap,
     setShowMarkersWithHeatmap,
     zoneClusters,
+    renderAIZones,
+    triggerMarkerClick,
   };
 }

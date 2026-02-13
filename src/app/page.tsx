@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Menu } from 'lucide-react';
-import { Map, useMapActions } from '@/features/map';
+import { Menu, PanelRightOpen } from 'lucide-react';
+import { Map, ResultsPanel, useMapActions } from '@/features/map';
 import { ChatSidebar, useChat, useMarketAnalysis } from '@/features/chat';
-import { ChatContext, ChatMessage } from '@/shared/types/chat';
+import { ChatContext, ChatMessage, AnalysisCardData } from '@/shared/types/chat';
 
 
 export default function Home() {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiZones, setAiZones] = useState<AnalysisCardData | null>(null);
+  const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false);
 
   const { messages, isLoading, sendMessage, addMessage, clearMessages } = useChat();
   const { analyzeMarket } = useMarketAnalysis();
@@ -19,18 +21,18 @@ export default function Home() {
     isSearching,
     directionsResult,
     recentSearches,
-    hasMoreResults,
     selectedRouteIndex,
     searchPlaces,
     getDirections,
     analyzeAccessibility,
     clearSearchResults,
     clearDirections,
-    loadMoreResults,
     heatmapMode,
     setHeatmapMode,
     updateZoneOverlays,
     zoneClusters,
+    renderAIZones,
+    triggerMarkerClick,
   } = useMapActions();
 
   const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
@@ -55,19 +57,23 @@ export default function Home() {
       if ((result.intent === 'search' || result.intent === 'analyze') && result.query) {
         clearSearchResults();
         clearDirections();
+        setAiZones(null);
         const places = await searchPlaces(result.query, map, {
           category: result.category,
           location: result.location
         });
 
+        // Auto-open results panel when results are found
+        if (places.length > 0) {
+          setIsResultsPanelOpen(true);
+        }
+
         // Trigger market analysis for "analyze" intent
         if (result.intent === 'analyze' && places.length > 0) {
-          // Auto-enable competition heatmap: red = saturated, green = gap/opportunity
           setHeatmapMode('competition');
-          updateZoneOverlays(places, 'competition', map);
-
           setIsAnalyzing(true);
           try {
+            // Run AI analysis first to get zone coordinates
             const analysis = await analyzeMarket(
               places,
               result.category || 'business',
@@ -76,6 +82,10 @@ export default function Home() {
             );
 
             if (analysis) {
+              // Render zones using AI-returned coordinates (replaces clustering)
+              renderAIZones(analysis.analysis, map);
+              setAiZones(analysis.analysis);
+
               const analysisMessage: ChatMessage = {
                 id: `analysis-${Date.now()}`,
                 role: 'assistant',
@@ -101,7 +111,7 @@ export default function Home() {
       }
       // If intent === 'chat', do nothing with map
     }
-  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, analyzeMarket, addMessage, setHeatmapMode, updateZoneOverlays]);
+  }, [sendMessage, getMapContext, map, clearSearchResults, clearDirections, searchPlaces, getDirections, analyzeAccessibility, analyzeMarket, addMessage, setHeatmapMode, renderAIZones]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (map) {
@@ -116,21 +126,26 @@ export default function Home() {
   }, [clearSearchResults, clearDirections]);
 
   const handleClearMap = useCallback(() => {
-    clearSearchResults(); // Clears markers
-    clearDirections();     // Clears directions
+    clearSearchResults();
+    clearDirections();
+    setAiZones(null);
+    setIsResultsPanelOpen(false);
   }, [clearSearchResults, clearDirections]);
 
   const handleNewChat = useCallback(() => {
     clearMessages();
     clearSearchResults();
     clearDirections();
+    setAiZones(null);
+    setIsResultsPanelOpen(false);
   }, [clearMessages, clearSearchResults, clearDirections]);
 
-  const handleLoadMore = useCallback(async () => {
-    if (map) {
-      await loadMoreResults(map);
-    }
-  }, [map, loadMoreResults]);
+  const handlePlaceClick = useCallback((placeId: string, location: { lat: number; lng: number }) => {
+    if (!map) return;
+    map.panTo(location);
+    map.setZoom(16);
+    triggerMarkerClick(placeId);
+  }, [map, triggerMarkerClick]);
 
   const handleStreetViewChange = useCallback((inStreetView: boolean) => {
     // Auto-hide sidebar when entering Street View (like Google Maps)
@@ -189,6 +204,25 @@ export default function Home() {
         hasDirections={directionsResult !== null}
       />
 
+      {/* Results Panel Toggle Button - right side */}
+      {!isResultsPanelOpen && searchResults.length > 0 && (
+        <button
+          onClick={() => setIsResultsPanelOpen(true)}
+          className="absolute top-4 right-4 z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all duration-300 ease-out"
+        >
+          <PanelRightOpen size={20} className="text-white" />
+        </button>
+      )}
+
+      {/* Results Panel - Right side */}
+      <ResultsPanel
+        results={searchResults}
+        aiZones={aiZones}
+        isVisible={isResultsPanelOpen}
+        onClose={() => setIsResultsPanelOpen(false)}
+        onPlaceClick={handlePlaceClick}
+      />
+
       {/* Map - Full Width */}
       <div className="w-full h-full">
         <Map
@@ -196,11 +230,9 @@ export default function Home() {
           searchResults={searchResults}
           directionsResult={directionsResult}
           selectedRouteIndex={selectedRouteIndex}
-          hasMoreResults={hasMoreResults}
-          onLoadMore={handleLoadMore}
           onStreetViewChange={handleStreetViewChange}
-          showZoneLegend={heatmapMode !== 'off'}
           zoneClusters={zoneClusters}
+          aiZones={aiZones}
         />
 
         {/* Overlay gradient for visual effect */}

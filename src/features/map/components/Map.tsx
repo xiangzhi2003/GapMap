@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { loadGoogleMaps } from '@/shared/utils/googleMaps';
 import { LIGHT_MAP_STYLES, SATELLITE_MAP_STYLES, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/constants/mapStyles';
-import { PlaceResult } from '@/shared/types/chat';
+import { PlaceResult, AnalysisCardData } from '@/shared/types/chat';
 import type { ZoneCluster } from '@/shared/utils/zoneClusterer';
 
 interface MapProps {
@@ -13,58 +13,13 @@ interface MapProps {
   searchResults?: PlaceResult[];
   directionsResult?: google.maps.DirectionsResult | null;
   selectedRouteIndex?: number;
-  hasMoreResults?: boolean;
-  onLoadMore?: () => void;
   onStreetViewChange?: (isStreetView: boolean) => void;
-  showZoneLegend?: boolean;
   zoneClusters?: ZoneCluster[];
+  aiZones?: AnalysisCardData | null;
 }
 
-function ZoneLegend({ visible }: { visible: boolean }) {
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-          className="absolute bottom-20 left-4 z-10 bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-xl p-3 shadow-2xl"
-          style={{ minWidth: '170px' }}
-        >
-          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Zone Legend
-          </div>
-          <div className="space-y-1.5">
-            <LegendItem color="#ef4444" label="High Saturation" range="4+ competitors" />
-            <LegendItem color="#f59e0b" label="Moderate" range="2-3 competitors" />
-            <LegendItem color="#22c55e" label="Opportunity" range="1 competitor" />
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function LegendItem({ color, label, range, pulse }: { color: string; label: string; range: string; pulse?: boolean }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`w-3 h-3 rounded-full flex-shrink-0 ${pulse ? 'animate-pulse' : ''}`}
-        style={{ backgroundColor: color, border: '1.5px solid rgba(255,255,255,0.4)' }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] text-white font-medium leading-tight">{label}</div>
-        <div className="text-[9px] text-gray-500 leading-tight">{range}</div>
-      </div>
-    </div>
-  );
-}
-
-function ZoneComparisonTable({ clusters }: { clusters: ZoneCluster[] }) {
+function ZoneComparisonTable({ clusters, aiZones }: { clusters: ZoneCluster[]; aiZones?: AnalysisCardData | null }) {
   const [isExpanded, setIsExpanded] = useState(false);
-
-  if (clusters.length === 0) return null;
 
   const levelColors: Record<string, string> = {
     red: '#ef4444',
@@ -85,6 +40,82 @@ function ZoneComparisonTable({ clusters }: { clusters: ZoneCluster[] }) {
     </span>
   );
 
+  // Use AI zones if available, otherwise fall back to clustering-based zones
+  if (aiZones) {
+    const allZones = [
+      ...aiZones.redZones.map(z => ({ ...z, level: 'red' as const })),
+      ...aiZones.orangeZones.map(z => ({ ...z, level: 'orange' as const })),
+      ...aiZones.greenZones.map(z => ({ ...z, level: 'green' as const })),
+    ];
+
+    if (allZones.length === 0) return null;
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-[95vw] max-w-[800px]"
+        >
+          <div className="bg-[#12121a]/95 backdrop-blur-xl border border-[#2a2a3a] rounded-xl shadow-2xl overflow-hidden">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  AI Zone Analysis
+                </span>
+                <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                  {allZones.length} zones
+                </span>
+              </div>
+              {isExpanded ? (
+                <ChevronDown size={14} className="text-gray-400" />
+              ) : (
+                <ChevronUp size={14} className="text-gray-400" />
+              )}
+            </button>
+
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: 'auto' }}
+                exit={{ height: 0 }}
+                className="overflow-x-auto"
+              >
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="border-t border-[#2a2a3a] text-gray-500">
+                      <th className="px-3 py-2 text-left font-medium">Zone</th>
+                      <th className="px-3 py-2 text-center font-medium">Level</th>
+                      <th className="px-3 py-2 text-center font-medium">Competitors</th>
+                      <th className="px-3 py-2 text-left font-medium">AI Reasoning</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allZones.map((z, i) => (
+                      <tr key={`ai-zone-${i}`} className="border-t border-[#1a1a2e] hover:bg-white/5 transition-colors">
+                        <td className="px-3 py-2 text-white font-medium truncate max-w-[160px]">{z.name}</td>
+                        <td className="px-3 py-2 text-center">{levelBadge(z.level)}</td>
+                        <td className="px-3 py-2 text-center text-gray-300">{z.count ?? 0}</td>
+                        <td className="px-3 py-2 text-gray-400 text-[10px] max-w-[300px] truncate">{z.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
+  // Fallback: clustering-based zones
+  if (clusters.length === 0) return null;
+
   return (
     <AnimatePresence>
       <motion.div
@@ -94,7 +125,6 @@ function ZoneComparisonTable({ clusters }: { clusters: ZoneCluster[] }) {
         className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-[95vw] max-w-[800px]"
       >
         <div className="bg-[#12121a]/95 backdrop-blur-xl border border-[#2a2a3a] rounded-xl shadow-2xl overflow-hidden">
-          {/* Header toggle */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors"
@@ -114,7 +144,6 @@ function ZoneComparisonTable({ clusters }: { clusters: ZoneCluster[] }) {
             )}
           </button>
 
-          {/* Table content */}
           {isExpanded && (
             <motion.div
               initial={{ height: 0 }}
@@ -169,11 +198,9 @@ export default function Map({
   searchResults = [],
   directionsResult,
   selectedRouteIndex = 0,
-  hasMoreResults,
-  onLoadMore,
   onStreetViewChange,
-  showZoneLegend = false,
   zoneClusters = [],
+  aiZones = null,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -500,11 +527,8 @@ export default function Map({
         </div>
       )}
 
-      {/* Zone Legend */}
-      <ZoneLegend visible={showZoneLegend} />
-
       {/* Zone Comparison Table */}
-      {showZoneLegend && <ZoneComparisonTable clusters={zoneClusters} />}
+      {(aiZones || zoneClusters.length > 0) && <ZoneComparisonTable clusters={zoneClusters} aiZones={aiZones} />}
 
       {/* Search results count indicator */}
       {searchResults.length > 0 && (
@@ -520,23 +544,6 @@ export default function Map({
         </motion.div>
       )}
 
-
-      {/* Load More Results Button */}
-      {hasMoreResults && onLoadMore && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          onClick={onLoadMore}
-          className="absolute bottom-16 right-4 bg-cyan-500 hover:bg-cyan-400 text-white font-medium px-4 py-2 rounded-lg shadow-lg transition-all hover:scale-105 flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-          </svg>
-          Load More Results
-        </motion.button>
-      )}
 
       {/* Route info is now shown as a map InfoWindow at the route midpoint */}
     </motion.div>
