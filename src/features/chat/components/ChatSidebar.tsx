@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, Menu, Trash2, SquarePen } from 'lucide-react';
+import { Map, Sparkles, Menu, Trash2, SquarePen, Info } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from '@/features/map/components/SearchBar';
@@ -42,6 +42,7 @@ export default function ChatSidebar({
   hasDirections,
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Auto-scroll to bottom when new messages arrive or analyzing starts
   useEffect(() => {
@@ -99,6 +100,13 @@ export default function ChatSidebar({
                   </button>
                 )}
                 <button
+                  onClick={() => setIsGuideOpen((prev) => !prev)}
+                  aria-label="Toggle guide"
+                  className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                >
+                  <Info size={16} className="text-gray-400" />
+                </button>
+                <button
                   onClick={onClose}
                   aria-label="Close chat sidebar"
                   className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
@@ -116,6 +124,72 @@ export default function ChatSidebar({
             isSearching={isSearching}
             recentSearches={recentSearches}
           />
+
+          {/* Guide Modal */}
+          <AnimatePresence>
+            {isGuideOpen && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsGuideOpen(false)}
+                  aria-hidden="true"
+                  className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="GapMap guide"
+                  className="fixed left-1/2 top-1/2 z-[70] w-[90vw] max-w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#2a2a3a] bg-[#0f0f16] shadow-2xl"
+                >
+                  <div className="flex items-center justify-between border-b border-[#2a2a3a] px-4 py-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">What can I ask?</h3>
+                      <p className="text-[11px] text-gray-500">Quick guide to GapMap capabilities</p>
+                    </div>
+                    <button
+                      onClick={() => setIsGuideOpen(false)}
+                      aria-label="Close guide"
+                      className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                    >
+                      <Menu size={16} className="text-gray-400" />
+                    </button>
+                  </div>
+                  <div className="p-4 text-xs text-gray-300 space-y-3">
+                    <div className="text-gray-400">
+                      Capabilities: search places, directions, market analysis, accessibility scoring, and environment insights.
+                    </div>
+                    <div className="text-gray-500">
+                      Limits: can't search private databases, real-time traffic incidents, or places without public Google Maps listings.
+                    </div>
+                    <div className="grid gap-2">
+                      <SuggestionButton
+                        text="Find cafes in Kuala Lumpur"
+                        onClick={() => onSendMessage('Find cafes in Kuala Lumpur')}
+                      />
+                      <SuggestionButton
+                        text="Directions from KL Sentral to KLCC"
+                        onClick={() => onSendMessage('Directions from KL Sentral to KLCC')}
+                      />
+                      <SuggestionButton
+                        text="Analyze market for gyms in Petaling Jaya"
+                        onClick={() => onSendMessage('Analyze market for gyms in Petaling Jaya')}
+                      />
+                      <SuggestionButton
+                        text="How accessible is Mid Valley Megamall?"
+                        onClick={() => onSendMessage('How accessible is Mid Valley Megamall?')}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {/* Chat Messages */}
           <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
