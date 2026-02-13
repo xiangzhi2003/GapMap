@@ -208,7 +208,7 @@ export default function Home() {
       {!isResultsPanelOpen && searchResults.length > 0 && (
         <button
           onClick={() => setIsResultsPanelOpen(true)}
-          className="absolute top-4 right-4 z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all duration-300 ease-out"
+          className="absolute top-35 right-2.5 z-[100] w-10 h-10 bg-[#12121a]/90 backdrop-blur-sm border border-[#2a2a3a] rounded-lg flex items-center justify-center hover:bg-[#1a1a25] hover:border-cyan-500/30 transition-all duration-300 ease-out"
         >
           <PanelRightOpen size={20} className="text-white" />
         </button>
