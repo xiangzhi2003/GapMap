@@ -12,6 +12,7 @@ interface UseChatResult {
         mapContext?: ChatContext
     ) => Promise<ChatApiResponse | undefined>;
     addMessage: (message: ChatMessage) => void;
+    replaceLastAssistantMessage: (message: ChatMessage) => void;
     clearMessages: () => void;
 }
 
@@ -64,18 +65,14 @@ export function useChat(): UseChatResult {
                     );
                 }
 
-                // For 'analyze' intent, don't add a plain-text reply here.
-                // The styled MarketAnalysisCard will be added separately by page.tsx via addMessage().
-                if (data.intent !== "analyze") {
-                    const assistantMessage: ChatMessage = {
-                        id: `assistant-${Date.now()}`,
-                        role: "assistant",
-                        content: data.reply,
-                        timestamp: new Date(),
-                    };
+                const assistantMessage: ChatMessage = {
+                    id: `assistant-${Date.now()}`,
+                    role: "assistant",
+                    content: data.reply,
+                    timestamp: new Date(),
+                };
 
-                    setMessages((prev) => [...prev, assistantMessage]);
-                }
+                setMessages((prev) => [...prev, assistantMessage]);
 
                 // Return full response for map handling
                 return data;
@@ -104,6 +101,19 @@ export function useChat(): UseChatResult {
         setMessages((prev) => [...prev, message]);
     }, []);
 
+    // Replace the last assistant message (used to swap plain-text reply with styled analysis card)
+    const replaceLastAssistantMessage = useCallback((message: ChatMessage) => {
+        setMessages((prev) => {
+            const lastAssistantIdx = prev.findLastIndex(
+                (m) => m.role === "assistant"
+            );
+            if (lastAssistantIdx === -1) return [...prev, message];
+            const updated = [...prev];
+            updated[lastAssistantIdx] = message;
+            return updated;
+        });
+    }, []);
+
     const clearMessages = useCallback(() => {
         setMessages([]);
         setError(null);
@@ -115,6 +125,7 @@ export function useChat(): UseChatResult {
         error,
         sendMessage,
         addMessage,
+        replaceLastAssistantMessage,
         clearMessages,
     };
 }
