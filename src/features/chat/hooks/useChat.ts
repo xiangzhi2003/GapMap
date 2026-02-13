@@ -39,12 +39,22 @@ export function useChat(): UseChatResult {
 
             try {
                 // Clean history: only send role, content, timestamp (as ISO string)
-                const cleanedHistory = messages.map((msg) => ({
-                    id: msg.id,
-                    role: msg.role,
-                    content: msg.content,
-                    timestamp: msg.timestamp.toISOString(),
-                }));
+                // For analysis messages with empty content, generate a summary from analysisData
+                // so Gemini has proper conversation context
+                const cleanedHistory = messages
+                    .map((msg) => {
+                        let content = msg.content;
+                        if (!content && msg.analysisData) {
+                            content = `[Market analysis completed for ${msg.analysisData.businessType} in ${msg.analysisData.location}: ${msg.analysisData.redZones.length} red zones, ${msg.analysisData.orangeZones.length} orange zones, ${msg.analysisData.greenZones.length} green zones. Recommendation: ${msg.analysisData.recommendation}]`;
+                        }
+                        return {
+                            id: msg.id,
+                            role: msg.role,
+                            content,
+                            timestamp: msg.timestamp.toISOString(),
+                        };
+                    })
+                    .filter((msg) => msg.content);
 
                 const response = await fetch("/api/chat", {
                     method: "POST",
