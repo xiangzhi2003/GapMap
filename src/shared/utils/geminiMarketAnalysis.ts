@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { AnalysisCardData } from '@/shared/types/chat';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AnalysisCardData } from "@/shared/types/chat";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const MARKET_ANALYSIS_SYSTEM_INSTRUCTION = `You are a strategic market analyst for GapMap, specializing in competitive location analysis for new business ventures.
 
@@ -19,16 +19,24 @@ You must respond with a JSON object using this schema:
 {
   "businessType": "the business type being analyzed",
   "location": "the geographic area",
+  "targetAudienceAnalysis": {
+    "primaryAudience": "description of the ideal customer (e.g. 'Young professionals aged 25-35 with disposable income')",
+    "incomeLevel": "low" | "middle" | "upper-middle" | "high",
+    "ageRange": "e.g. 18-35",
+    "keyTraits": ["trait1", "trait2", "trait3"],
+    "idealAreaTraits": ["near offices", "high foot traffic", "upscale residential"],
+    "avoidAreaTraits": ["industrial zones", "low-income housing", "school zones"]
+  },
   "redZones": [
-    { "name": "specific area/street name", "reason": "why it's saturated", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters }
+    { "name": "specific area/street name", "reason": "why it's saturated", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters, "audienceFit": "good|moderate|poor", "audienceNote": "brief note on demographic suitability" }
   ],
   "orangeZones": [
-    { "name": "specific area/street name", "reason": "moderate competition details", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters }
+    { "name": "specific area/street name", "reason": "moderate competition details", "count": number_of_competitors, "lat": centroid_latitude, "lng": centroid_longitude, "radius": radius_in_meters, "audienceFit": "good|moderate|poor", "audienceNote": "brief note on demographic suitability" }
   ],
   "greenZones": [
-    { "name": "specific area/street name", "reason": "opportunity explanation", "count": number_of_competitors, "lat": estimated_latitude, "lng": estimated_longitude, "radius": radius_in_meters }
+    { "name": "specific area/street name", "reason": "opportunity explanation", "count": number_of_competitors, "lat": estimated_latitude, "lng": estimated_longitude, "radius": radius_in_meters, "audienceFit": "good|moderate|poor", "audienceNote": "brief note on demographic suitability" }
   ],
-  "recommendation": "strategic recommendation with actionable insights (2-3 sentences)"
+  "recommendation": "strategic recommendation with actionable insights including target audience considerations (2-3 sentences)"
 }
 
 ZONE COORDINATE REQUIREMENTS (CRITICAL):
@@ -72,6 +80,29 @@ ANALYSIS FRAMEWORK:
 - Identify specific streets, residential complexes, or landmarks as recommendations
 - Example: "Sri Petaling residential area (north of the location) has no gyms within 2km radius despite high population density"
 
+TARGET AUDIENCE ANALYSIS (CRITICAL):
+Before analyzing zones, first determine the TARGET AUDIENCE for this business type. Consider:
+
+1. **Demographics**: Who is the ideal customer? Age range, income level, lifestyle.
+2. **Area-Audience Fit**: For each zone, assess whether the local demographics match the target audience:
+   - "good": Area demographics strongly match the target audience (e.g., upscale residential for premium restaurants)
+   - "moderate": Partial match, could work with adjustments (e.g., mixed-income area for mid-range cafe)
+   - "poor": Demographics mismatch (e.g., industrial zone for a children's playground, low-income area for luxury spa)
+
+3. **Audience-Mismatch Examples**:
+   - Luxury bars/fine dining → poor fit in low-income residential areas or industrial zones
+   - Children's playgrounds/toy stores → poor fit in corporate/office districts or nightlife areas
+   - Budget eateries/food stalls → poor fit in exclusive gated communities
+   - Gyms/fitness studios → good fit near offices or young professional housing, poor fit near retirement homes
+   - Nightclubs/bars → poor fit near schools, mosques/temples, family residential areas
+   - Coworking spaces → good fit near universities and startup hubs, poor fit in suburban family neighborhoods
+   - Pet stores/grooming → good fit in pet-friendly residential areas, poor fit in dense commercial zones
+   - Organic/health food stores → good fit in upper-middle-class neighborhoods, poor fit in budget-conscious areas
+
+4. **Green Zone Audience Validation**: A green zone with low competition but POOR audience fit should be flagged — low competition might exist because there's no demand from the local population.
+
+5. Include "audienceFit" and "audienceNote" for EVERY zone (red, orange, green).
+
 CRITICAL ANALYSIS RULES:
 
 1. **Use Actual Place Names and Streets**:
@@ -111,18 +142,26 @@ Output:
 {
   "businessType": "gyms",
   "location": "Bukit Jalil",
+  "targetAudienceAnalysis": {
+    "primaryAudience": "Health-conscious young professionals and fitness enthusiasts aged 20-40",
+    "incomeLevel": "middle",
+    "ageRange": "20-40",
+    "keyTraits": ["health-conscious", "active lifestyle", "willing to pay for convenience", "social media active"],
+    "idealAreaTraits": ["near offices or condominiums", "young professional housing", "good public transport access", "high foot traffic"],
+    "avoidAreaTraits": ["elderly-dominated residential areas", "industrial zones", "areas far from public transport"]
+  },
   "redZones": [
-    { "name": "Pavilion Bukit Jalil vicinity", "reason": "8 established gyms within 500m including Celebrity Fitness and Fitness First (4.2+ ratings, 200+ reviews each)", "count": 8, "lat": 3.063872, "lng": 101.682956, "radius": 600 },
-    { "name": "Jalan Jalil Perkasa area", "reason": "4 competing gyms, all with strong online presence and modern facilities", "count": 4, "lat": 3.057234, "lng": 101.678123, "radius": 500 }
+    { "name": "Pavilion Bukit Jalil vicinity", "reason": "8 established gyms within 500m including Celebrity Fitness and Fitness First (4.2+ ratings, 200+ reviews each)", "count": 8, "lat": 3.063872, "lng": 101.682956, "radius": 600, "audienceFit": "good", "audienceNote": "Mall area attracts young professionals — high gym demand but oversaturated" },
+    { "name": "Jalan Jalil Perkasa area", "reason": "4 competing gyms, all with strong online presence and modern facilities", "count": 4, "lat": 3.057234, "lng": 101.678123, "radius": 500, "audienceFit": "good", "audienceNote": "Mixed residential with young families and professionals" }
   ],
   "orangeZones": [
-    { "name": "Bukit Jalil Recreation Park area", "reason": "2 gyms but both have <3.8 ratings and limited class offerings - quality differentiation opportunity", "count": 2, "lat": 3.065123, "lng": 101.675456, "radius": 550 }
+    { "name": "Bukit Jalil Recreation Park area", "reason": "2 gyms but both have <3.8 ratings and limited class offerings - quality differentiation opportunity", "count": 2, "lat": 3.065123, "lng": 101.675456, "radius": 550, "audienceFit": "moderate", "audienceNote": "Park visitors are fitness-oriented but area skews toward older residents" }
   ],
   "greenZones": [
-    { "name": "Sri Petaling residential zone", "reason": "No gyms within 2km despite high-density condominiums (Sri Petaling, Endah Regal). Nearest competitor is 2.5km away.", "count": 0, "lat": 3.078500, "lng": 101.681234, "radius": 700 },
-    { "name": "Taman Bukit Jalil (east)", "reason": "Only 1 budget gym with 3.2 rating. Premium gym opportunity with classes and personal training.", "count": 1, "lat": 3.061234, "lng": 101.695678, "radius": 650 }
+    { "name": "Sri Petaling residential zone", "reason": "No gyms within 2km despite high-density condominiums (Sri Petaling, Endah Regal). Nearest competitor is 2.5km away.", "count": 0, "lat": 3.078500, "lng": 101.681234, "radius": 700, "audienceFit": "good", "audienceNote": "Dense condos with young renters and professionals — strong target audience match" },
+    { "name": "Taman Bukit Jalil (east)", "reason": "Only 1 budget gym with 3.2 rating. Premium gym opportunity with classes and personal training.", "count": 1, "lat": 3.061234, "lng": 101.695678, "radius": 650, "audienceFit": "moderate", "audienceNote": "Mostly family housing — moderate demand for premium fitness" }
   ],
-  "recommendation": "Target the Sri Petaling residential corridor or eastern Taman Bukit Jalil. Both areas have underserved populations >2km from quality gyms. Consider positioning as a premium boutique gym with classes, as existing competitors focus on equipment-only models."
+  "recommendation": "Target the Sri Petaling residential corridor where young condo residents match the gym's target audience perfectly. Eastern Taman Bukit Jalil is viable but skews family-oriented, so consider family-friendly fitness classes to match the local demographics."
 }
 
 Input: 3 cafes in a small town (competitors centered around 5.320, 103.130)
@@ -130,94 +169,119 @@ Output:
 {
   "businessType": "cafes",
   "location": "Small Town Area",
+  "targetAudienceAnalysis": {
+    "primaryAudience": "Students, remote workers, and casual socializers aged 18-35",
+    "incomeLevel": "low",
+    "ageRange": "18-35",
+    "keyTraits": ["budget-conscious", "social", "need WiFi and workspace", "value ambiance"],
+    "idealAreaTraits": ["near university or college", "walkable neighborhoods", "areas with young renters"],
+    "avoidAreaTraits": ["luxury residential enclaves", "industrial parks", "highway-adjacent locations"]
+  },
   "redZones": [],
   "orangeZones": [
-    { "name": "Main Street commercial area", "reason": "3 established cafes with 4.0+ ratings, but all close by 6 PM - evening/night cafe opportunity", "count": 3, "lat": 5.320100, "lng": 103.130200, "radius": 500 }
+    { "name": "Main Street commercial area", "reason": "3 established cafes with 4.0+ ratings, but all close by 6 PM - evening/night cafe opportunity", "count": 3, "lat": 5.320100, "lng": 103.130200, "radius": 500, "audienceFit": "moderate", "audienceNote": "Commercial foot traffic during day but limited evening crowd" }
   ],
   "greenZones": [
-    { "name": "North residential area near park", "reason": "No cafes within 1.5km. High foot traffic from park visitors on weekends.", "count": 0, "lat": 5.333500, "lng": 103.130000, "radius": 600 },
-    { "name": "East side near university", "reason": "No cafes despite student population. Delivery and late-night service gap.", "count": 0, "lat": 5.319800, "lng": 103.143000, "radius": 650 }
+    { "name": "North residential area near park", "reason": "No cafes within 1.5km. High foot traffic from park visitors on weekends.", "count": 0, "lat": 5.333500, "lng": 103.130000, "radius": 600, "audienceFit": "moderate", "audienceNote": "Family-oriented park area — weekend traffic but may not sustain weekday sales" },
+    { "name": "East side near university", "reason": "No cafes despite student population. Delivery and late-night service gap.", "count": 0, "lat": 5.319800, "lng": 103.143000, "radius": 650, "audienceFit": "good", "audienceNote": "Student population perfectly matches cafe target audience — high demand for affordable hangout spots" }
   ],
-  "recommendation": "Open near the university on the east side with extended hours (7 AM - 11 PM) and delivery service. Existing cafes don't serve students or night customers, creating a clear market gap."
+  "recommendation": "Open near the university on the east side where the student demographic is an ideal match for a cafe. Offer extended hours (7 AM - 11 PM), WiFi, and delivery to capture the underserved student market that existing cafes ignore."
 }
 
 IMPORTANT NOTES:
 - ALWAYS use specific place names, street names, and landmarks from the competitor data
 - ALWAYS include "count" for each zone
+- ALWAYS include "audienceFit" and "audienceNote" for each zone
+- ALWAYS include "targetAudienceAnalysis" with all fields populated
 - If there are fewer than 3 competitors total, focus analysis on growth opportunity rather than competition
 - If elevation data shows <10m, mention flood risk in the recommendation
 - If AQI >100 for outdoor/health businesses, mention air quality concerns
-- Keep recommendation concise (2-3 sentences) but actionable
+- Keep recommendation concise (2-3 sentences) but actionable and include target audience considerations
+- Flag green zones where low competition may be due to demographic mismatch rather than true opportunity
 `;
 
 interface CompetitorSummary {
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  rating?: number;
-  reviewCount?: number;
-  types?: string[];
-  delivery?: boolean;
-  takeout?: boolean;
-  dineIn?: boolean;
-  elevation?: number;
-  aqi?: number;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    rating?: number;
+    reviewCount?: number;
+    types?: string[];
+    delivery?: boolean;
+    takeout?: boolean;
+    dineIn?: boolean;
+    elevation?: number;
+    aqi?: number;
 }
 
 interface MarketAnalysisRequest {
-  competitors: CompetitorSummary[];
-  businessType: string;
-  location: string;
-  userQuery: string;
+    competitors: CompetitorSummary[];
+    businessType: string;
+    location: string;
+    userQuery: string;
 }
 
 interface MarketAnalysisResponse {
-  analysis: AnalysisCardData;
-  insights: string;
+    analysis: AnalysisCardData;
+    insights: string;
 }
 
-export async function analyzeMarket(request: MarketAnalysisRequest): Promise<MarketAnalysisResponse> {
-  try {
-    // Configure Model with System Instruction & JSON Mode
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: MARKET_ANALYSIS_SYSTEM_INSTRUCTION,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    });
+export async function analyzeMarket(
+    request: MarketAnalysisRequest
+): Promise<MarketAnalysisResponse> {
+    try {
+        // Configure Model with System Instruction & JSON Mode
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: MARKET_ANALYSIS_SYSTEM_INSTRUCTION,
+            generationConfig: {
+                responseMimeType: "application/json",
+                // @ts-expect-error - thinkingConfig supported by Gemini 2.5 Flash
+                thinkingConfig: { thinkingBudget: 0 },
+            },
+        });
 
-    // Build compact analysis prompt — minimize token count for speed
-    const competitorList = request.competitors.map((c, i) => {
-      const parts = [`${i + 1}. ${c.name} | ${c.address} | (${c.lat},${c.lng})`];
-      if (c.rating) parts.push(`${c.rating}★ ${c.reviewCount || 0}r`);
-      const services = [c.delivery && 'D', c.takeout && 'T', c.dineIn && 'DI'].filter(Boolean);
-      if (services.length) parts.push(services.join('/'));
-      return parts.join(' | ');
-    }).join('\n');
+        // Build compact analysis prompt — minimize token count for speed
+        const competitorList = request.competitors
+            .map((c, i) => {
+                const parts = [
+                    `${i + 1}. ${c.name} | ${c.address} | (${c.lat},${c.lng})`,
+                ];
+                if (c.rating) parts.push(`${c.rating}★ ${c.reviewCount || 0}r`);
+                const services = [
+                    c.delivery && "D",
+                    c.takeout && "T",
+                    c.dineIn && "DI",
+                ].filter(Boolean);
+                if (services.length) parts.push(services.join("/"));
+                return parts.join(" | ");
+            })
+            .join("\n");
 
-    const prompt = `Analyze ${request.businessType} market in ${request.location}. Query: "${request.userQuery}"
+        const prompt = `Analyze ${request.businessType} market in ${request.location}. Query: "${request.userQuery}"
 
 ${request.competitors.length} competitors:
 ${competitorList}
 
 Calculate lat/lng/radius for each zone. Centroid for red/orange, geographic gaps for green. Every zone MUST have lat, lng, radius.`;
 
-    // Send request to Gemini
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+        // Send request to Gemini
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
 
-    // Parse JSON response
-    const parsed = JSON.parse(responseText) as AnalysisCardData;
+        // Parse JSON response
+        const parsed = JSON.parse(responseText) as AnalysisCardData;
 
-    // Generate insights summary
-    const insights = `**Market Analysis Complete**
+        // Generate insights summary
+        const audienceSection = parsed.targetAudienceAnalysis
+            ? `\n🎯 **Target Audience:** ${parsed.targetAudienceAnalysis.primaryAudience} (${parsed.targetAudienceAnalysis.incomeLevel} income, age ${parsed.targetAudienceAnalysis.ageRange})\n`
+            : "";
+
+        const insights = `**Market Analysis Complete**
 
 📍 **${parsed.location}** - ${parsed.businessType}
-
+${audienceSection}
 🔴 **Red Zones (Avoid):** ${parsed.redZones.length} saturated areas
 🟠 **Orange Zones (Moderate):** ${parsed.orangeZones.length} areas with potential
 🟢 **Green Zones (Opportunity):** ${parsed.greenZones.length} high-potential areas
@@ -225,24 +289,25 @@ Calculate lat/lng/radius for each zone. Centroid for red/orange, geographic gaps
 **Strategic Recommendation:**
 ${parsed.recommendation}`;
 
-    return {
-      analysis: parsed,
-      insights,
-    };
-  } catch (error) {
-    console.error('Market analysis error:', error);
+        return {
+            analysis: parsed,
+            insights,
+        };
+    } catch (error) {
+        console.error("Market analysis error:", error);
 
-    // Return fallback analysis
-    return {
-      analysis: {
-        businessType: request.businessType,
-        location: request.location,
-        redZones: [],
-        orangeZones: [],
-        greenZones: [],
-        recommendation: 'Unable to complete market analysis due to an error. Please try again.',
-      },
-      insights: 'Market analysis failed. Please try again.',
-    };
-  }
+        // Return fallback analysis
+        return {
+            analysis: {
+                businessType: request.businessType,
+                location: request.location,
+                redZones: [],
+                orangeZones: [],
+                greenZones: [],
+                recommendation:
+                    "Unable to complete market analysis due to an error. Please try again.",
+            },
+            insights: "Market analysis failed. Please try again.",
+        };
+    }
 }
