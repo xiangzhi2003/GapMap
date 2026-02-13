@@ -323,9 +323,14 @@ export function MarketAnalysisCard({ data }: MarketAnalysisCardProps) {
                                                     className="text-orange-400 mt-0.5 flex-shrink-0"
                                                 />
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-orange-300">
-                                                        {zone.name}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <p className="text-xs font-medium text-orange-300">
+                                                            {zone.name}
+                                                        </p>
+                                                        {getAudienceFitBadge(
+                                                            zone
+                                                        )}
+                                                    </div>
                                                     {zone.count !==
                                                         undefined && (
                                                         <p className="text-[10px] text-orange-400/60 mt-0.5">
@@ -341,6 +346,11 @@ export function MarketAnalysisCard({ data }: MarketAnalysisCardProps) {
                                             <p className="text-[11px] text-gray-400 leading-relaxed">
                                                 {zone.reason}
                                             </p>
+                                            {zone.audienceNote && (
+                                                <p className="text-[10px] text-purple-400/80 mt-1 italic">
+                                                    👥 {zone.audienceNote}
+                                                </p>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -393,9 +403,14 @@ export function MarketAnalysisCard({ data }: MarketAnalysisCardProps) {
                                                     className="text-green-400 mt-0.5 flex-shrink-0"
                                                 />
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-green-300">
-                                                        {zone.name}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <p className="text-xs font-medium text-green-300">
+                                                            {zone.name}
+                                                        </p>
+                                                        {getAudienceFitBadge(
+                                                            zone
+                                                        )}
+                                                    </div>
                                                     {zone.count !==
                                                         undefined && (
                                                         <p className="text-[10px] text-green-400/60 mt-0.5">
@@ -411,6 +426,11 @@ export function MarketAnalysisCard({ data }: MarketAnalysisCardProps) {
                                             <p className="text-[11px] text-gray-400 leading-relaxed">
                                                 {zone.reason}
                                             </p>
+                                            {zone.audienceNote && (
+                                                <p className="text-[10px] text-purple-400/80 mt-1 italic">
+                                                    👥 {zone.audienceNote}
+                                                </p>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

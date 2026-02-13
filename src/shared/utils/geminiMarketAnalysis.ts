@@ -20,9 +20,9 @@ You must respond with a JSON object using this schema:
   "businessType": "the business type being analyzed",
   "location": "the geographic area",
   "targetAudienceAnalysis": {
-    "primaryAudience": "description of the ideal customer (e.g. 'Young professionals aged 25-35 with disposable income')",
+    "primaryAudience": "description of the ideal customer — tailor age/income to the ACTUAL business type, not default to young professionals",
     "incomeLevel": "low" | "middle" | "upper-middle" | "high",
-    "ageRange": "e.g. 18-35",
+    "ageRange": "must reflect the REAL target age for this business (e.g. 5-12 for toy stores, 13-19 for bubble tea, 30-55 for fine dining, 0-6 for daycare, 60+ for retirement services)",
     "keyTraits": ["trait1", "trait2", "trait3"],
     "idealAreaTraits": ["near offices", "high foot traffic", "upscale residential"],
     "avoidAreaTraits": ["industrial zones", "low-income housing", "school zones"]
@@ -84,6 +84,22 @@ TARGET AUDIENCE ANALYSIS (CRITICAL):
 Before analyzing zones, first determine the TARGET AUDIENCE for this business type. Consider:
 
 1. **Demographics**: Who is the ideal customer? Age range, income level, lifestyle.
+   - DO NOT default to "young professionals aged 25-35" for every business. The age range MUST match the actual business type.
+   - Age range examples by business type:
+     * Playgrounds, toy stores, children's education centers → 3-12 (children) / 25-40 (parents who decide)
+     * Bubble tea, boba shops, arcade/gaming cafes → 13-25
+     * Nightclubs, bars, hookah lounges → 21-35
+     * Fine dining, wine bars, luxury spas → 30-55
+     * Daycare, nurseries → 0-5 (children) / 25-40 (parents)
+     * Retirement homes, elderly care → 60+
+     * Tutoring centers, cram schools → 10-18 (students) / 30-50 (parents)
+     * Skateparks, youth sports → 8-22
+     * Fast food, budget restaurants → all ages (6-60+)
+     * Gyms, fitness studios → 18-45
+     * Coworking spaces → 22-40
+     * Pet stores, grooming → 25-55 (pet owners)
+     * Pharmacies, clinics → all ages
+   - When in doubt, think about who ACTUALLY walks into this type of business and pays.
 2. **Area-Audience Fit**: For each zone, assess whether the local demographics match the target audience:
    - "good": Area demographics strongly match the target audience (e.g., upscale residential for premium restaurants)
    - "moderate": Partial match, could work with adjustments (e.g., mixed-income area for mid-range cafe)
@@ -91,13 +107,17 @@ Before analyzing zones, first determine the TARGET AUDIENCE for this business ty
 
 3. **Audience-Mismatch Examples**:
    - Luxury bars/fine dining → poor fit in low-income residential areas or industrial zones
-   - Children's playgrounds/toy stores → poor fit in corporate/office districts or nightlife areas
+   - Children's playgrounds/toy stores → poor fit in corporate/office districts or nightlife areas; good fit near family housing and schools
    - Budget eateries/food stalls → poor fit in exclusive gated communities
    - Gyms/fitness studios → good fit near offices or young professional housing, poor fit near retirement homes
    - Nightclubs/bars → poor fit near schools, mosques/temples, family residential areas
    - Coworking spaces → good fit near universities and startup hubs, poor fit in suburban family neighborhoods
    - Pet stores/grooming → good fit in pet-friendly residential areas, poor fit in dense commercial zones
    - Organic/health food stores → good fit in upper-middle-class neighborhoods, poor fit in budget-conscious areas
+   - Bubble tea/boba shops → good fit near schools, universities, teen hangout areas; poor fit in elderly neighborhoods
+   - Daycare/nurseries → good fit in young family suburbs; poor fit in nightlife districts or industrial zones
+   - Skateparks/youth recreation → good fit in suburban areas with teens; poor fit in corporate business districts
+   - Elderly care/retirement services → good fit in mature residential neighborhoods; poor fit near universities
 
 4. **Green Zone Audience Validation**: A green zone with low competition but POOR audience fit should be flagged — low competition might exist because there's no demand from the local population.
 
@@ -186,6 +206,31 @@ Output:
     { "name": "East side near university", "reason": "No cafes despite student population. Delivery and late-night service gap.", "count": 0, "lat": 5.319800, "lng": 103.143000, "radius": 650, "audienceFit": "good", "audienceNote": "Student population perfectly matches cafe target audience — high demand for affordable hangout spots" }
   ],
   "recommendation": "Open near the university on the east side where the student demographic is an ideal match for a cafe. Offer extended hours (7 AM - 11 PM), WiFi, and delivery to capture the underserved student market that existing cafes ignore."
+}
+
+Input: 5 indoor playgrounds in Subang Jaya, Malaysia (competitors centered around 3.05, 101.58)
+Output:
+{
+  "businessType": "indoor playgrounds",
+  "location": "Subang Jaya",
+  "targetAudienceAnalysis": {
+    "primaryAudience": "Families with young children aged 2-10, driven by parents aged 28-42",
+    "incomeLevel": "middle",
+    "ageRange": "2-10",
+    "keyTraits": ["family-oriented", "safety-conscious parents", "looking for weekend activities", "willing to pay for child entertainment"],
+    "idealAreaTraits": ["near family housing and condos", "close to schools and kindergartens", "shopping malls with family traffic", "safe residential suburbs"],
+    "avoidAreaTraits": ["nightlife districts", "industrial zones", "office-only commercial areas", "areas dominated by elderly residents"]
+  },
+  "redZones": [
+    { "name": "Sunway Pyramid area", "reason": "3 indoor playgrounds within 800m including established brands with 4.5+ ratings", "count": 3, "lat": 3.073200, "lng": 101.607300, "radius": 500, "audienceFit": "good", "audienceNote": "High family foot traffic from mall visitors but already saturated with play centers" }
+  ],
+  "orangeZones": [
+    { "name": "SS15 commercial district", "reason": "2 small play areas but both lack modern equipment — quality upgrade opportunity", "count": 2, "lat": 3.078100, "lng": 101.587600, "radius": 450, "audienceFit": "moderate", "audienceNote": "Mix of student rentals and young families — moderate child density" }
+  ],
+  "greenZones": [
+    { "name": "USJ 1-6 residential zone", "reason": "No indoor playgrounds despite being a dense family suburb with multiple kindergartens.", "count": 0, "lat": 3.044500, "lng": 101.575800, "radius": 700, "audienceFit": "good", "audienceNote": "Dense terrace housing with young families — ideal demographic for children's entertainment" }
+  ],
+  "recommendation": "Target USJ 1-6 residential area where young families with children perfectly match the playground's audience. The area has kindergartens and family housing but zero indoor play options within 2km."
 }
 
 IMPORTANT NOTES:
