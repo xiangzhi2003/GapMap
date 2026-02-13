@@ -262,7 +262,7 @@ export default function Map({
           position: google.maps.ControlPosition.RIGHT_CENTER,
         },
         fullscreenControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_TOP,
+          position: google.maps.ControlPosition.RIGHT_CENTER,
         },
       });
 
