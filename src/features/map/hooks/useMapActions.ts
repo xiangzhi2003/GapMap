@@ -12,7 +12,7 @@ import { calculateAccessibility, type AccessibilityAnalysis } from '@/shared/uti
 import { reverseGeocode, forwardGeocode, extractLocationFromQuery } from '@/shared/utils/geocoding';
 import { getAdvancedRoutes, type AdvancedRouteResult } from '@/shared/utils/routes';
 import { clusterPlaces, type ZoneCluster, type ServiceGaps } from '@/shared/utils/zoneClusterer';
-import type { HeatmapMode } from '@/shared/types/heatmap';
+type HeatmapMode = 'competition' | 'opportunity' | 'environment' | 'off';
 
 interface UseMapActionsResult {
   searchResults: PlaceResult[];
