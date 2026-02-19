@@ -608,7 +608,7 @@ export default function Map({
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="absolute bottom-6 right-15 bg-[#12121a]/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-cyan-500/30"
+          className="absolute bottom-20 sm:bottom-6 right-15 bg-[#12121a]/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-cyan-500/30"
         >
           <p className="text-xs font-mono text-cyan-400">
             {searchResults.length} places found

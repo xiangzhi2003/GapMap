@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   description: "Identify market gaps and business opportunities using AI-powered competitor heatmap analysis",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

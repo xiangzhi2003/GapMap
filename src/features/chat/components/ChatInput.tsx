@@ -82,7 +82,7 @@ export default function ChatInput({ onSend, isLoading, placeholder = 'Ask GapMap
           aria-label="Chat message input"
           disabled={isLoading}
           rows={1}
-          className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 resize-none outline-none min-h-[24px] max-h-[120px] py-1 px-2"
+          className="flex-1 bg-transparent text-base sm:text-sm text-gray-200 placeholder-gray-500 resize-none outline-none min-h-[24px] max-h-[120px] py-1 px-2"
         />
         <button
           onClick={handleSubmit}

@@ -71,7 +71,7 @@ export default function SearchBar({ onSearch, onClear, isSearching, recentSearch
             onFocus={() => setIsFocused(true)}
             onBlur={() => setTimeout(() => setIsFocused(false), 150)}
             placeholder="Search places..."
-            className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
+            className="flex-1 bg-transparent text-base sm:text-sm text-gray-200 placeholder-gray-500 outline-none"
           />
           {query && (
             <button

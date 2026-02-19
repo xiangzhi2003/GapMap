@@ -33,7 +33,9 @@ interface HomeContentProps {
 
 function HomeContent({ user, onSignOut }: HomeContentProps) {
     const [map, setMap] = useState<google.maps.Map | null>(null);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(
+        () => typeof window !== "undefined" && window.innerWidth >= 640
+    );
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiZones, setAiZones] = useState<AnalysisCardData | null>(null);
     const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false);

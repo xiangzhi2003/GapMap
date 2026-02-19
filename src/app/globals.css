@@ -166,3 +166,12 @@ body {
     rgba(255, 0, 0, 1)
   );
 }
+
+/* Mobile: safe area insets for iPhone notch / home indicator */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}

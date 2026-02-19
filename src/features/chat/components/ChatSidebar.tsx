@@ -275,7 +275,7 @@ export default function ChatSidebar({
                   Chat History
                 </p>
               </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+              <div className="flex-1 overflow-y-scroll p-2 space-y-1 custom-scrollbar">
                 {isLoadingSessions ? (
                   /* Loading skeleton */
                   Array.from({ length: 4 }).map((_, i) => (
@@ -333,7 +333,7 @@ export default function ChatSidebar({
               />
 
               {/* Chat Messages */}
-              <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
+              <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-scroll p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center px-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
@@ -429,7 +429,7 @@ export default function ChatSidebar({
           )}
 
           {/* User Profile Footer — always visible */}
-          <div className="p-3 border-t border-[#2a2a3a] flex items-center gap-3 bg-[#0a0a0f]">
+          <div className="p-3 pb-safe border-t border-[#2a2a3a] flex items-center gap-3 bg-[#0a0a0f]">
             {user.photoURL ? (
               <img
                 src={user.photoURL}

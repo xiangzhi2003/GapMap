@@ -256,9 +256,9 @@ export default function ResultsPanel({
           />
 
           <motion.div
-            initial={{ x: 320 }}
+            initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            exit={{ x: 320 }}
+            exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed right-0 top-0 h-full z-50 w-[85vw] sm:w-80 bg-[#0a0a0f] border-l border-[#2a2a3a] flex flex-col"
           >
@@ -279,7 +279,7 @@ export default function ResultsPanel({
             </div>
 
             {/* Scrollable results */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-scroll custom-scrollbar">
               {aiZones && groups.length > 0 ? (
                 <>
                   {groups.map((group, i) => (
