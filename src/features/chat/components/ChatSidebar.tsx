@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Sparkles, Menu, Trash2, SquarePen, Info, Clock, LogOut, X, MessageSquare } from 'lucide-react';
 import { type User } from 'firebase/auth';
@@ -75,6 +75,8 @@ export default function ChatSidebar({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(380);
+  const isResizing = useRef(false);
 
   // Auto-scroll to bottom when new messages arrive (only when chat view is visible)
   useEffect(() => {
@@ -82,6 +84,27 @@ export default function ChatSidebar({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isAnalyzing, isHistoryOpen]);
+
+  // Resize drag listeners
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      const maxWidth = window.innerWidth < 640 ? window.innerWidth * 0.85 : 560;
+      setSidebarWidth(Math.min(Math.max(e.clientX, 380), maxWidth));
+    };
+    const onUp = () => { isResizing.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    isResizing.current = true;
+    e.preventDefault();
+  };
 
   return (
     <AnimatePresence>
@@ -97,68 +120,82 @@ export default function ChatSidebar({
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
           />
           <motion.aside
-            initial={{ x: -320, opacity: 0.8 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -320, opacity: 0.8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            initial={{ x: -sidebarWidth, opacity: 0 }}
+            animate={{ x: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 30 } }}
+            exit={{ x: -sidebarWidth, opacity: 0, transition: { duration: 0.18, ease: 'easeIn' } }}
             role="complementary"
             aria-label="GapMap AI Chat"
-            className="fixed left-0 top-0 z-50 w-[85vw] sm:w-80 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
+            style={{ width: sidebarWidth }}
+            className="fixed left-0 top-0 z-50 h-full bg-[#0a0a0f] border-r border-[#2a2a3a] flex flex-col shadow-2xl"
           >
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            title="Drag to resize"
+            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-cyan-500/40 active:bg-cyan-500/60 transition-colors z-10"
+          />
           {/* Header */}
           <div className="p-4 border-b border-[#2a2a3a]">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 min-w-0">
               <button
                 onClick={() => window.location.reload()}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer min-w-0 flex-1 overflow-hidden"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center flex-shrink-0">
                   <Map size={20} className="text-white" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <h1 className="text-lg font-bold text-white leading-tight flex items-center gap-1 truncate">
                     GapMap
-                    <Sparkles size={14} className="text-cyan-400" />
+                    <Sparkles size={14} className="text-cyan-400 flex-shrink-0" />
                   </h1>
-                  <p className="text-xs text-gray-500">Market Gap Intelligence</p>
+                  <p className="text-xs text-gray-500 leading-tight truncate">Market Gap Intelligence</p>
                 </div>
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* History toggle */}
-                <button
-                  onClick={() => setIsHistoryOpen((prev) => !prev)}
-                  aria-label="Toggle chat history"
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    isHistoryOpen
-                      ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-400'
-                      : 'bg-[#1a1a25] hover:bg-[#2a2a3a] text-gray-400'
-                  }`}
-                >
-                  <Clock size={16} />
-                </button>
-                {messages.length > 0 && !isHistoryOpen && (
+                <IconTooltip label="Chat History" align="right">
                   <button
-                    onClick={onNewChat}
-                    aria-label="New chat"
+                    onClick={() => setIsHistoryOpen((prev) => !prev)}
+                    aria-label="Toggle chat history"
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                      isHistoryOpen
+                        ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-400'
+                        : 'bg-[#1a1a25] hover:bg-[#2a2a3a] text-gray-400'
+                    }`}
+                  >
+                    <Clock size={16} />
+                  </button>
+                </IconTooltip>
+                {messages.length > 0 && !isHistoryOpen && (
+                  <IconTooltip label="New Chat" align="right">
+                    <button
+                      onClick={onNewChat}
+                      aria-label="New chat"
+                      className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                    >
+                      <SquarePen size={16} className="text-gray-400" />
+                    </button>
+                  </IconTooltip>
+                )}
+                <IconTooltip label="Guide" align="right">
+                  <button
+                    onClick={() => setIsGuideOpen((prev) => !prev)}
+                    aria-label="Toggle guide"
                     className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
                   >
-                    <SquarePen size={16} className="text-gray-400" />
+                    <Info size={16} className="text-gray-400" />
                   </button>
-                )}
-                <button
-                  onClick={() => setIsGuideOpen((prev) => !prev)}
-                  aria-label="Toggle guide"
-                  className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
-                >
-                  <Info size={16} className="text-gray-400" />
-                </button>
-                <button
-                  onClick={onClose}
-                  aria-label="Close chat sidebar"
-                  className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
-                >
-                  <Menu size={16} className="text-gray-400" />
-                </button>
+                </IconTooltip>
+                <IconTooltip label="Close" align="right">
+                  <button
+                    onClick={onClose}
+                    aria-label="Close chat sidebar"
+                    className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
+                  >
+                    <Menu size={16} className="text-gray-400" />
+                  </button>
+                </IconTooltip>
               </div>
             </div>
           </div>
@@ -411,13 +448,15 @@ export default function ChatSidebar({
               </p>
               <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
             </div>
-            <button
-              onClick={onSignOut}
-              aria-label="Sign out"
-              className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-red-500/10 border border-[#2a2a3a] hover:border-red-500/30 flex items-center justify-center transition-colors flex-shrink-0"
-            >
-              <LogOut size={14} className="text-gray-400 hover:text-red-400" />
-            </button>
+            <IconTooltip label="Sign Out" align="right">
+              <button
+                onClick={onSignOut}
+                aria-label="Sign out"
+                className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-red-500/10 border border-[#2a2a3a] hover:border-red-500/30 flex items-center justify-center transition-colors flex-shrink-0"
+              >
+                <LogOut size={14} className="text-gray-400 hover:text-red-400" />
+              </button>
+            </IconTooltip>
           </div>
 
         </motion.aside>
@@ -482,6 +521,20 @@ function SessionItem({ session, isActive, onLoad, onDelete }: SessionItemProps) 
           </motion.button>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function IconTooltip({ label, children, align = 'center' }: { label: string; children: React.ReactNode; align?: 'center' | 'right' }) {
+  const posClass = align === 'right'
+    ? 'right-0'
+    : 'left-1/2 -translate-x-1/2';
+  return (
+    <div className="relative group">
+      {children}
+      <div className={`absolute top-full ${posClass} mt-2 px-2 py-1 bg-[#1a1a25] border border-[#2a2a3a] rounded-md text-[10px] text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-[80]`}>
+        {label}
+      </div>
     </div>
   );
 }
