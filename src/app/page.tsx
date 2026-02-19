@@ -2,23 +2,58 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Menu, PanelRightOpen } from "lucide-react";
+import { type User } from "firebase/auth";
 import { Map, ResultsPanel, useMapActions } from "@/features/map";
 import { ChatSidebar, useChat, useMarketAnalysis } from "@/features/chat";
+import { useAuth, LoginScreen } from "@/features/auth";
+import { SessionProvider, useSession } from "@/features/sessions";
 import {
     ChatContext,
     ChatMessage,
     AnalysisCardData,
 } from "@/shared/types/chat";
 
-export default function Home() {
+// ─── Loading screen shown while auth state is resolving ───────────────────────
+function LoadingScreen() {
+    return (
+        <main className="h-screen w-screen bg-[#0a0a0f] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin" />
+                <p className="text-xs text-gray-500">Loading GapMap…</p>
+            </div>
+        </main>
+    );
+}
+
+// ─── Main app content — only rendered when authenticated ──────────────────────
+interface HomeContentProps {
+    user: User;
+    onSignOut: () => Promise<void>;
+}
+
+function HomeContent({ user, onSignOut }: HomeContentProps) {
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiZones, setAiZones] = useState<AnalysisCardData | null>(null);
     const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false);
 
-    const { messages, isLoading, sendMessage, addMessage, clearMessages } =
-        useChat();
+    const {
+        messages,
+        addMessage,
+        startNewSession,
+        loadSession,
+        deleteSession,
+        sessions,
+        isLoadingSessions,
+        currentSessionId,
+    } = useSession();
+
+    const { isLoading, sendMessage, addMessage: chatAddMessage } = useChat({
+        messages,
+        onMessageAdd: addMessage,
+    });
+
     const { analyzeMarket } = useMarketAnalysis();
     const {
         searchResults,
@@ -52,12 +87,18 @@ export default function Home() {
         };
     }, [map]);
 
+    const handleClearMap = useCallback(() => {
+        clearSearchResults();
+        clearDirections();
+        setAiZones(null);
+        setIsResultsPanelOpen(false);
+    }, [clearSearchResults, clearDirections]);
+
     const handleSendMessage = useCallback(
         async (content: string) => {
             const mapContext = getMapContext();
             const result = await sendMessage(content, mapContext);
 
-            // Handle intent-based actions
             if (result && map) {
                 if (
                     (result.intent === "search" ||
@@ -72,16 +113,13 @@ export default function Home() {
                         location: result.location,
                     });
 
-                    // Auto-open results panel when results are found
                     if (places.length > 0) {
                         setIsResultsPanelOpen(true);
                     }
 
-                    // Trigger market analysis for "analyze" intent
                     if (result.intent === "analyze") {
                         if (places.length === 0) {
-                            // No competitors — add a helpful message
-                            addMessage({
+                            chatAddMessage({
                                 id: `analysis-fallback-${Date.now()}`,
                                 role: "assistant",
                                 content: `I couldn't find any ${
@@ -106,8 +144,7 @@ export default function Home() {
                                     renderAIZones(analysis.analysis, map);
                                     setAiZones(analysis.analysis);
 
-                                    // Add the styled analysis card as a new message (keeps the initial reply above)
-                                    addMessage({
+                                    chatAddMessage({
                                         id: `analysis-${Date.now()}`,
                                         role: "assistant",
                                         content: "",
@@ -115,7 +152,7 @@ export default function Home() {
                                         analysisData: analysis.analysis,
                                     });
                                 } else {
-                                    addMessage({
+                                    chatAddMessage({
                                         id: `analysis-error-${Date.now()}`,
                                         role: "assistant",
                                         content:
@@ -144,7 +181,6 @@ export default function Home() {
                     clearDirections();
                     await analyzeAccessibility(result.query, map);
                 }
-                // If intent === 'chat', do nothing with map
             }
         },
         [
@@ -157,7 +193,7 @@ export default function Home() {
             getDirections,
             analyzeAccessibility,
             analyzeMarket,
-            addMessage,
+            chatAddMessage,
             setHeatmapMode,
             renderAIZones,
         ]
@@ -178,20 +214,21 @@ export default function Home() {
         clearDirections();
     }, [clearSearchResults, clearDirections]);
 
-    const handleClearMap = useCallback(() => {
-        clearSearchResults();
-        clearDirections();
-        setAiZones(null);
-        setIsResultsPanelOpen(false);
-    }, [clearSearchResults, clearDirections]);
-
     const handleNewChat = useCallback(() => {
-        clearMessages();
+        startNewSession();
         clearSearchResults();
         clearDirections();
         setAiZones(null);
         setIsResultsPanelOpen(false);
-    }, [clearMessages, clearSearchResults, clearDirections]);
+    }, [startNewSession, clearSearchResults, clearDirections]);
+
+    const handleLoadSession = useCallback(
+        async (sessionId: string) => {
+            await loadSession(sessionId);
+            handleClearMap();
+        },
+        [loadSession, handleClearMap]
+    );
 
     const handlePlaceClick = useCallback(
         (placeId: string, location: { lat: number; lng: number }) => {
@@ -204,7 +241,6 @@ export default function Home() {
     );
 
     const handleStreetViewChange = useCallback((inStreetView: boolean) => {
-        // Auto-hide sidebar when entering Street View (like Google Maps)
         if (inStreetView) {
             setIsSidebarOpen(false);
         }
@@ -233,7 +269,7 @@ export default function Home() {
 
     return (
         <main className="relative h-screen w-screen overflow-hidden bg-[#0a0a0f]">
-            {/* Sidebar Toggle Button - always at left side */}
+            {/* Sidebar Toggle Button */}
             {!isSidebarOpen && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
@@ -243,7 +279,6 @@ export default function Home() {
                 </button>
             )}
 
-            {/* Sidebar Overlay */}
             <ChatSidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -259,9 +294,16 @@ export default function Home() {
                 onNewChat={handleNewChat}
                 hasMarkers={searchResults.length > 0}
                 hasDirections={directionsResult !== null}
+                user={user}
+                sessions={sessions}
+                isLoadingSessions={isLoadingSessions}
+                currentSessionId={currentSessionId}
+                onLoadSession={handleLoadSession}
+                onDeleteSession={deleteSession}
+                onSignOut={onSignOut}
             />
 
-            {/* Results Panel Toggle Button - right side */}
+            {/* Results Panel Toggle */}
             {!isResultsPanelOpen && searchResults.length > 0 && (
                 <button
                     onClick={() => setIsResultsPanelOpen(true)}
@@ -271,7 +313,6 @@ export default function Home() {
                 </button>
             )}
 
-            {/* Results Panel - Right side */}
             <ResultsPanel
                 results={searchResults}
                 aiZones={aiZones}
@@ -280,7 +321,6 @@ export default function Home() {
                 onPlaceClick={handlePlaceClick}
             />
 
-            {/* Map - Full Width */}
             <div className="w-full h-full">
                 <Map
                     onMapReady={handleMapReady}
@@ -292,12 +332,25 @@ export default function Home() {
                     aiZones={aiZones}
                 />
 
-                {/* Overlay gradient for visual effect */}
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-[#0a0a0f]/50 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#0a0a0f]/50 to-transparent" />
                 </div>
             </div>
         </main>
+    );
+}
+
+// ─── Root page — handles auth gating ─────────────────────────────────────────
+export default function Home() {
+    const { user, loading, signOut } = useAuth();
+
+    if (loading) return <LoadingScreen />;
+    if (!user) return <LoginScreen />;
+
+    return (
+        <SessionProvider userId={user.uid}>
+            <HomeContent user={user} onSignOut={signOut} />
+        </SessionProvider>
     );
 }

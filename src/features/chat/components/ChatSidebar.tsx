@@ -2,11 +2,13 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Sparkles, Menu, Trash2, SquarePen, Info } from 'lucide-react';
+import { Map, Sparkles, Menu, Trash2, SquarePen, Info, Clock, LogOut, X, MessageSquare } from 'lucide-react';
+import { type User } from 'firebase/auth';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SearchBar from '@/features/map/components/SearchBar';
 import { ChatMessage as ChatMessageType } from '@/shared/types/chat';
+import { type FirestoreSession } from '@/features/sessions';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -23,6 +25,28 @@ interface ChatSidebarProps {
   onNewChat: () => void;
   hasMarkers: boolean;
   hasDirections: boolean;
+  // Auth + session props
+  user: User;
+  sessions: FirestoreSession[];
+  isLoadingSessions: boolean;
+  currentSessionId: string | null;
+  onLoadSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onSignOut: () => void;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const minutes = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export default function ChatSidebar({
@@ -40,14 +64,24 @@ export default function ChatSidebar({
   onNewChat,
   hasMarkers,
   hasDirections,
+  user,
+  sessions,
+  isLoadingSessions,
+  currentSessionId,
+  onLoadSession,
+  onDeleteSession,
+  onSignOut,
 }: ChatSidebarProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  // Auto-scroll to bottom when new messages arrive or analyzing starts
+  // Auto-scroll to bottom when new messages arrive (only when chat view is visible)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isAnalyzing]);
+    if (!isHistoryOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isAnalyzing, isHistoryOpen]);
 
   return (
     <AnimatePresence>
@@ -90,7 +124,19 @@ export default function ChatSidebar({
                 </div>
               </button>
               <div className="flex items-center gap-2">
-                {messages.length > 0 && (
+                {/* History toggle */}
+                <button
+                  onClick={() => setIsHistoryOpen((prev) => !prev)}
+                  aria-label="Toggle chat history"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    isHistoryOpen
+                      ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-400'
+                      : 'bg-[#1a1a25] hover:bg-[#2a2a3a] text-gray-400'
+                  }`}
+                >
+                  <Clock size={16} />
+                </button>
+                {messages.length > 0 && !isHistoryOpen && (
                   <button
                     onClick={onNewChat}
                     aria-label="New chat"
@@ -116,14 +162,6 @@ export default function ChatSidebar({
               </div>
             </div>
           </div>
-
-          {/* Search Bar */}
-          <SearchBar
-            onSearch={onSearch}
-            onClear={onClearSearch}
-            isSearching={isSearching}
-            recentSearches={recentSearches}
-          />
 
           {/* Guide Modal */}
           <AnimatePresence>
@@ -165,7 +203,7 @@ export default function ChatSidebar({
                       Capabilities: search places, directions, market analysis, accessibility scoring, and environment insights.
                     </div>
                     <div className="text-gray-500">
-                      Limits: can't search private databases, real-time traffic incidents, or places without public Google Maps listings.
+                      Limits: can&apos;t search private databases, real-time traffic incidents, or places without public Google Maps listings.
                     </div>
                     <div className="grid gap-2">
                       <SuggestionButton
@@ -191,103 +229,260 @@ export default function ChatSidebar({
             )}
           </AnimatePresence>
 
-          {/* Chat Messages */}
-          <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
-                  <Sparkles size={28} className="text-cyan-400" />
-                </div>
-                <h3 className="text-lg font-medium text-white mb-2">
-                  Welcome to GapMap
-                </h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  Find the best location to open your business using AI-powered competitor analysis.
+          {/* Main content area — toggled between chat and history */}
+          {isHistoryOpen ? (
+            /* ── Session History Panel ── */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 pt-3 pb-2 border-b border-[#2a2a3a]">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Chat History
                 </p>
-                <div className="space-y-2 w-full">
-                  <SuggestionButton
-                    text="Open a Pet Cafe in Selangor"
-                    onClick={() => onSendMessage('I want to open a Pet Cafe in Selangor. Where should I set up?')}
-                  />
-                  <SuggestionButton
-                    text="Gym at Bukit Jalil"
-                    onClick={() => onSendMessage('I want to open a Gym at Bukit Jalil. Analyze the competition and find the best location.')}
-                  />
-                  <SuggestionButton
-                    text="Coffee Shop in KL"
-                    onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
-                  />
-                </div>
               </div>
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
-                {(isLoading || isAnalyzing) && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-3"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                      >
-                        <Sparkles size={16} className="text-purple-400" />
-                      </motion.div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="rounded-2xl px-4 py-3 bg-[#1a1a25] border border-purple-500/20 rounded-tl-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300">
-                            {isAnalyzing ? 'Analyzing market data' : 'Thinking'}
-                          </span>
-                          <motion.span
-                            className="text-sm text-purple-400"
-                            animate={{ opacity: [1, 0.3, 1] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                          >
-                            ...
-                          </motion.span>
-                        </div>
-                        {isAnalyzing && (
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: '100%' }}
-                            transition={{ duration: 15, ease: 'easeOut' }}
-                            className="h-0.5 bg-gradient-to-r from-purple-500 via-cyan-500 to-purple-500 rounded-full mt-2"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                {isLoadingSessions ? (
+                  /* Loading skeleton */
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-14 rounded-lg bg-[#1a1a25] animate-pulse"
+                    />
+                  ))
+                ) : sessions.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
+                    <MessageSquare size={32} className="text-gray-600 mb-3" />
+                    <p className="text-sm text-gray-500">No previous chats</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Your conversations will appear here
+                    </p>
+                  </div>
+                ) : (
+                  sessions.map((session) => (
+                    <SessionItem
+                      key={session.id}
+                      session={session}
+                      isActive={session.id === currentSessionId}
+                      onLoad={() => {
+                        onLoadSession(session.id);
+                        setIsHistoryOpen(false);
+                      }}
+                      onDelete={() => onDeleteSession(session.id)}
+                    />
+                  ))
                 )}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
-
-          {/* Clear Map Button - show when there are markers or directions */}
-          {(hasMarkers || hasDirections) && (
-            <div className="px-4 pb-2">
-              <button
-                onClick={onClearMap}
-                className="w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-400 text-sm font-medium transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Trash2 size={16} />
-                Clear All Markers
-              </button>
+              </div>
+              {/* New chat button at bottom of history */}
+              <div className="p-3 border-t border-[#2a2a3a]">
+                <button
+                  onClick={() => {
+                    onNewChat();
+                    setIsHistoryOpen(false);
+                  }}
+                  className="w-full py-2 px-4 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 rounded-lg text-cyan-400 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <SquarePen size={14} />
+                  New Chat
+                </button>
+              </div>
             </div>
+          ) : (
+            /* ── Chat Panel ── */
+            <>
+              {/* Search Bar */}
+              <SearchBar
+                onSearch={onSearch}
+                onClear={onClearSearch}
+                isSearching={isSearching}
+                recentSearches={recentSearches}
+              />
+
+              {/* Chat Messages */}
+              <div role="log" aria-label="Chat messages" aria-live="polite" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#2a2a3a] scrollbar-track-transparent">
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mb-4">
+                      <Sparkles size={28} className="text-cyan-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">
+                      Welcome to GapMap
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Find the best location to open your business using AI-powered competitor analysis.
+                    </p>
+                    <div className="space-y-2 w-full">
+                      <SuggestionButton
+                        text="Open a Pet Cafe in Selangor"
+                        onClick={() => onSendMessage('I want to open a Pet Cafe in Selangor. Where should I set up?')}
+                      />
+                      <SuggestionButton
+                        text="Gym at Bukit Jalil"
+                        onClick={() => onSendMessage('I want to open a Gym at Bukit Jalil. Analyze the competition and find the best location.')}
+                      />
+                      <SuggestionButton
+                        text="Coffee Shop in KL"
+                        onClick={() => onSendMessage('Analyze the market for opening a Coffee Shop in Kuala Lumpur. Where are the gaps?')}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((message) => (
+                      <ChatMessage key={message.id} message={message} />
+                    ))}
+                    {(isLoading || isAnalyzing) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex gap-3"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          >
+                            <Sparkles size={16} className="text-purple-400" />
+                          </motion.div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="rounded-2xl px-4 py-3 bg-[#1a1a25] border border-purple-500/20 rounded-tl-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-300">
+                                {isAnalyzing ? 'Analyzing market data' : 'Thinking'}
+                              </span>
+                              <motion.span
+                                className="text-sm text-purple-400"
+                                animate={{ opacity: [1, 0.3, 1] }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                              >
+                                ...
+                              </motion.span>
+                            </div>
+                            {isAnalyzing && (
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: '100%' }}
+                                transition={{ duration: 15, ease: 'easeOut' }}
+                                className="h-0.5 bg-gradient-to-r from-purple-500 via-cyan-500 to-purple-500 rounded-full mt-2"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+
+              {/* Clear Map Button */}
+              {(hasMarkers || hasDirections) && (
+                <div className="px-4 pb-2">
+                  <button
+                    onClick={onClearMap}
+                    className="w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-400 text-sm font-medium transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Trash2 size={16} />
+                    Clear All Markers
+                  </button>
+                </div>
+              )}
+
+              {/* Chat Input */}
+              <ChatInput onSend={onSendMessage} isLoading={isLoading} />
+            </>
           )}
 
-          {/* Chat Input */}
-          <ChatInput onSend={onSendMessage} isLoading={isLoading} />
+          {/* User Profile Footer — always visible */}
+          <div className="p-3 border-t border-[#2a2a3a] flex items-center gap-3 bg-[#0a0a0f]">
+            {user.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.displayName ?? 'User'}
+                referrerPolicy="no-referrer"
+                className="w-8 h-8 rounded-full ring-1 ring-cyan-500/30 flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
+                {(user.displayName ?? user.email ?? 'U')[0].toUpperCase()}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-white truncate">
+                {user.displayName ?? 'User'}
+              </p>
+              <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={onSignOut}
+              aria-label="Sign out"
+              className="w-8 h-8 rounded-lg bg-[#1a1a25] hover:bg-red-500/10 border border-[#2a2a3a] hover:border-red-500/30 flex items-center justify-center transition-colors flex-shrink-0"
+            >
+              <LogOut size={14} className="text-gray-400 hover:text-red-400" />
+            </button>
+          </div>
+
         </motion.aside>
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+// ── Session list item ────────────────────────────────────────────────────────
+interface SessionItemProps {
+  session: FirestoreSession;
+  isActive: boolean;
+  onLoad: () => void;
+  onDelete: () => void;
+}
+
+function SessionItem({ session, isActive, onLoad, onDelete }: SessionItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      className={`group relative flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+        isActive
+          ? 'bg-cyan-500/10 border-l-2 border-cyan-500'
+          : 'hover:bg-[#1a1a25] border-l-2 border-transparent'
+      }`}
+      onClick={onLoad}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex-1 min-w-0 pr-6">
+        <p className="text-xs font-medium text-white truncate leading-snug">
+          {session.title}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px] text-gray-500">
+            {formatRelativeTime(session.updatedAt.toDate())}
+          </span>
+          <span className="text-[10px] text-gray-600">·</span>
+          <span className="text-[10px] text-gray-600">
+            {session.messageCount} msg{session.messageCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+      {/* Delete button — slides in on hover */}
+      <AnimatePresence>
+        {isHovered && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.15 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete session"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center transition-colors"
+          >
+            <X size={11} className="text-red-400" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

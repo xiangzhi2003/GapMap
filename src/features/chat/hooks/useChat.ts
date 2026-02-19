@@ -3,20 +3,22 @@
 import { useState, useCallback } from "react";
 import { ChatMessage, ChatContext, ChatApiResponse } from "@/shared/types/chat";
 
-interface UseChatResult {
+interface UseChatOptions {
     messages: ChatMessage[];
+    onMessageAdd: (message: ChatMessage) => Promise<void>;
+}
+
+interface UseChatResult {
     isLoading: boolean;
     error: string | null;
     sendMessage: (
         content: string,
         mapContext?: ChatContext
     ) => Promise<ChatApiResponse | undefined>;
-    addMessage: (message: ChatMessage) => void;
-    clearMessages: () => void;
+    addMessage: (message: ChatMessage) => Promise<void>;
 }
 
-export function useChat(): UseChatResult {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function useChat({ messages, onMessageAdd }: UseChatOptions): UseChatResult {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,7 @@ export function useChat(): UseChatResult {
                 timestamp: new Date(),
             };
 
-            setMessages((prev) => [...prev, userMessage]);
+            await onMessageAdd(userMessage);
             setIsLoading(true);
             setError(null);
 
@@ -42,14 +44,14 @@ export function useChat(): UseChatResult {
                 // so Gemini has proper conversation context
                 const cleanedHistory = messages
                     .map((msg) => {
-                        let content = msg.content;
-                        if (!content && msg.analysisData) {
-                            content = `[Market analysis completed for ${msg.analysisData.businessType} in ${msg.analysisData.location}: ${msg.analysisData.redZones.length} red zones, ${msg.analysisData.orangeZones.length} orange zones, ${msg.analysisData.greenZones.length} green zones. Recommendation: ${msg.analysisData.recommendation}]`;
+                        let msgContent = msg.content;
+                        if (!msgContent && msg.analysisData) {
+                            msgContent = `[Market analysis completed for ${msg.analysisData.businessType} in ${msg.analysisData.location}: ${msg.analysisData.redZones.length} red zones, ${msg.analysisData.orangeZones.length} orange zones, ${msg.analysisData.greenZones.length} green zones. Recommendation: ${msg.analysisData.recommendation}]`;
                         }
                         return {
                             id: msg.id,
                             role: msg.role,
-                            content,
+                            content: msgContent,
                             timestamp: msg.timestamp.toISOString(),
                         };
                     })
@@ -81,7 +83,7 @@ export function useChat(): UseChatResult {
                     timestamp: new Date(),
                 };
 
-                setMessages((prev) => [...prev, assistantMessage]);
+                await onMessageAdd(assistantMessage);
 
                 // Return full response for map handling
                 return data;
@@ -90,37 +92,30 @@ export function useChat(): UseChatResult {
                     err instanceof Error ? err.message : "Something went wrong";
                 setError(errorMessage);
 
-                // Add error message to chat
                 const errorAssistantMessage: ChatMessage = {
                     id: `assistant-error-${Date.now()}`,
                     role: "assistant",
                     content: `Error: ${errorMessage}`,
                     timestamp: new Date(),
                 };
-                setMessages((prev) => [...prev, errorAssistantMessage]);
+                await onMessageAdd(errorAssistantMessage);
                 return undefined;
             } finally {
                 setIsLoading(false);
             }
         },
-        [messages]
+        [messages, onMessageAdd]
     );
 
-    const addMessage = useCallback((message: ChatMessage) => {
-        setMessages((prev) => [...prev, message]);
-    }, []);
-
-    const clearMessages = useCallback(() => {
-        setMessages([]);
-        setError(null);
-    }, []);
+    const addMessage = useCallback(
+        (message: ChatMessage) => onMessageAdd(message),
+        [onMessageAdd]
+    );
 
     return {
-        messages,
         isLoading,
         error,
         sendMessage,
         addMessage,
-        clearMessages,
     };
 }
