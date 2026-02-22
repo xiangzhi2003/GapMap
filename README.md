@@ -1,30 +1,112 @@
-# GapMap - AI-Powered Location Strategy Platform
+# GapMap — AI-Powered Location Strategy Platform
 
-GapMap helps entrepreneurs find optimal business locations by combining Google Maps with Gemini AI. Ask a natural-language question like "Where should I open a gym in Bukit Jalil?" and get an interactive map with competitor markers, AI-driven zone analysis, accessibility scoring, and environmental data.
+> **Find the best location for your business using AI-driven market gap analysis.**
+
+GapMap helps entrepreneurs and small business owners stop guessing where to open their next venture. Simply ask a natural-language question — *"Where should I open a gym in Bukit Jalil?"* — and instantly get an interactive map with competitor locations, AI-generated opportunity zones, accessibility scores, and real-world environmental data.
+
+Built for the **hackathon** as a full-stack prototype demonstrating the integration of conversational AI, geospatial analysis, and real-time data.
+
+---
+
+## The Problem
+
+Scouting a business location traditionally requires weeks of manual research — visiting areas, counting competitors, checking accessibility, studying demographics. Most entrepreneurs skip this step entirely and rely on gut feeling, leading to poor location decisions.
+
+**GapMap automates this entire process in seconds using AI.**
+
+---
 
 ## Features
 
-- **AI Chat Interface** — Conversational sidebar with quick actions (Find, Directions, Analyze)
-- **AI Zone Analysis** — Gemini identifies Red (saturated), Orange (moderate), and Green (opportunity) zones with precise coordinates rendered as colored map circles
-- **Pulsing Green Zones** — Opportunity zones animate to draw attention
-- **Results Panel** — Right-side sliding panel listing all search results grouped by zone
-- **Auto-Pagination** — Automatically fetches all Google Places results (up to 60)
-- **Rich Info Windows** — Photos, ratings, reviews, service badges, elevation, AQI, timezone
-- **Directions & Routes** — Multi-route display with alternatives and Routes API v2 data
-- **Accessibility Scoring** — 8-direction travel time analysis with 0-100 score
-- **Environmental Data** — Elevation (flood risk), Air Quality Index, timezone per location
-- **Adaptive Map Styling** — Light theme for roadmap, optimized styles for satellite/hybrid
+### AI Intelligence
+- **Conversational AI Chat** — Natural-language interface powered by Gemini 2.5 Flash. Understands 5 intent types: search, analyze, directions, accessibility, and general chat
+- **AI Zone Analysis** — Gemini identifies Red (saturated), Orange (moderate competition), and Green (market gap) zones with precise geographic coordinates
+- **Target Audience Profiling** — AI returns income level, age range, and demographic traits per zone
+- **Context-Aware Advice** — Proactively mentions flood risk near rivers, air quality for outdoor businesses, and other environmental factors
+
+### Map & Location
+- **Live Competitor Search** — Auto-paginates Google Places results (up to 60 competitors per search)
+- **Zone Circles on Map** — Red/Orange/Green circles drawn at AI-calculated coordinates with radius in meters; green zones pulse to draw attention
+- **Numbered Markers + Clustering** — MarkerClusterer handles dense result sets, numbered markers match results panel
+- **Rich Info Windows** — Photos, ratings, reviews, open/closed status, service badges (delivery, takeout, wheelchair), elevation, AQI, and local timezone
+- **Directions & Routes** — Multi-route display with alternatives via Routes API v2
+- **Accessibility Scoring** — 8-direction travel time analysis returning a 0–100 score
 - **Street View** — Integrated with custom header and "Open in Google Maps" link
+
+### Environmental Data (per location)
+- **Elevation** — Flood risk assessment (below 10m = high risk)
+- **Air Quality Index** — Malaysia haze-aware AQI with health and business impact rating
+- **Local Timezone** — Live local time for any searched location
+
+### Authentication & Persistence
+- **Google Sign-In** — Secure OAuth via Firebase Authentication; no anonymous access
+- **Chat History** — Every conversation auto-saved to Cloud Firestore, organized by session
+- **Session Browser** — Sidebar history panel to reload or delete past sessions
+- **Cross-Device Sync** — Sign in on any device and access previous analyses
+
+### UI/UX
+- **Cyberpunk Dark Theme** — Glassmorphism panels, cyan/magenta accents, animated glow effects
+- **Resizable Sidebar** — Drag the right edge to adjust width (380px–560px)
+- **Responsive Mobile Layout** — Works on phones and tablets; starts closed on mobile to show map first
+- **Results Panel** — Right-side sliding panel grouping competitors by AI zone
+
+---
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router)
-- **AI:** Google Gemini 2.5 Flash
-- **Maps:** Google Maps JavaScript API + MarkerClusterer
-- **UI:** Tailwind CSS v4, Framer Motion, Lucide Icons
-- **Language:** TypeScript (strict)
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Framework | Next.js (App Router) | 16.1.6 |
+| Language | TypeScript (strict) | 5.9.3 |
+| AI Model | Google Gemini 2.5 Flash | via `@google/generative-ai` |
+| Maps | Google Maps Platform (10 APIs) | `@googlemaps/js-api-loader` |
+| Auth | Firebase Authentication | Firebase 12.9.0 |
+| Database | Cloud Firestore | Firebase 12.9.0 |
+| UI | React | 19.2.3 |
+| Styling | Tailwind CSS | v4 |
+| Animations | Framer Motion | ^12.31.1 |
+| Icons | Lucide React | ^0.563.0 |
+
+---
+
+## How It Works
+
+```
+User types: "Analyze market for coffee shops in Bangsar"
+        │
+        ▼
+POST /api/chat  →  Gemini 2.5 Flash (JSON mode)
+        │          classifies intent: "analyze"
+        │          extracts: category="coffee shop", location="Bangsar"
+        ▼
+searchPlaces()  →  Google Places Text Search
+        │          auto-paginates up to 60 results
+        │          creates numbered map markers + clusterer
+        ▼
+POST /api/market-analysis  →  Gemini 2.5 Flash
+        │                     analyzes competitor distribution
+        │                     returns Red/Orange/Green zones
+        │                     with lat/lng/radius coordinates
+        ▼
+renderAIZones()  →  draws colored circles on map
+                    green zones pulse
+                    zone labels + InfoWindows added
+        │
+        ▼
+ResultsPanel  →  groups competitors by zone (Haversine distance)
+ChatMessage   →  displays strategic insights + analysis card
+Firestore     →  saves entire conversation to user's session
+```
+
+---
 
 ## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- A Google Cloud project with billing enabled
+- A Google AI Studio account (free)
+- A Firebase project (free tier)
 
 ### 1. Clone the repository
 
@@ -44,127 +126,244 @@ npm install
 Create `.env.local` in the project root:
 
 ```env
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
+# Gemini AI (server-side only)
+GEMINI_API_KEY=your_gemini_api_key
+
+# Google Maps Platform (client-side)
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+# Firebase (client-side)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
 
-**Get your API keys:**
-- **Google Maps API Key:** https://console.cloud.google.com/apis/credentials
-  - Enable: Maps JavaScript API, Places API, Directions API, Distance Matrix API, Elevation API, Geocoding API, Air Quality API, Routes API, Timezone API
-- **Gemini API Key:** https://aistudio.google.com/app/apikey
+### 4. Set up Firebase
 
-### 4. Run the development server
+1. Go to [Firebase Console](https://console.firebase.google.com) → **Create a project**
+2. **Enable Authentication:**
+   - Go to Authentication → Get started → Sign-in method
+   - Enable **Google** provider → Save
+3. **Enable Firestore:**
+   - Go to Firestore Database → Create database
+   - Choose **Production mode** → select a region → Done
+4. **Register your web app:**
+   - Project Settings → Your apps → Add app → Web (`</>`)
+   - Copy the `firebaseConfig` values into your `.env.local`
+5. **Add authorized domains** (required for Google Sign-In to work):
+   - Authentication → Settings → Authorized domains → **Add domain**
+   - Add: `localhost` (for local dev)
+   - Add: `your-app.vercel.app` (for production)
+6. **Set Firestore security rules:**
+   - Firestore Database → Rules → paste the following:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        match /messages/{messageId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+  }
+}
+```
+
+### 5. Run the development server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Open [http://localhost:3000](http://localhost:3000) — sign in with Google and start analyzing.
+
+---
+
+## Environment Variables Reference
+
+| Variable | Side | Where to Get |
+|----------|------|-------------|
+| `GEMINI_API_KEY` | Server only | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Client | Firebase Console → Project Settings → Your apps |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Client | Same as above |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Client | Same as above |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Client | Same as above |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Client | Same as above |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Client | Same as above |
+
+---
+
+## Google Maps APIs to Enable
+
+In [Google Cloud Console](https://console.cloud.google.com/apis/library), enable all of the following for your API key:
+
+| API | Used For |
+|-----|---------|
+| Maps JavaScript API | Map rendering, Street View |
+| Places API | Business search (Text Search + Place Details) |
+| Directions API | Route calculation and display |
+| Distance Matrix API | 8-direction accessibility scoring |
+| Elevation API | Flood risk assessment |
+| Geocoding API | Address ↔ coordinates conversion |
+| Air Quality API | AQI data (Malaysia haze-aware) |
+| Routes API | Advanced routing with alternatives |
+| Time Zone API | Local time per location |
+
+---
 
 ## Usage Examples
 
-Try these queries in the chat:
+Sign in, then try these queries in the chat sidebar:
 
-- "I want to open a Pet Cafe in Selangor. Where should I set up?"
-- "Analyze the market for opening a Coffee Shop in Kuala Lumpur"
-- "Find gyms in Puchong"
-- "How to get from KL Sentral to Bukit Jalil"
-- "How accessible is Mid Valley Megamall?"
+| Query | What Happens |
+|-------|-------------|
+| `Analyze market for coffee shops in Bangsar` | Zone analysis with Red/Orange/Green circles on map |
+| `Where should I open a gym in Bukit Jalil?` | Full competitor scan + AI recommendation |
+| `Find pet cafes in Petaling Jaya` | Numbered markers with rich info windows |
+| `How to get from KL Sentral to Mid Valley` | Multi-route directions with alternatives |
+| `How accessible is Pavilion KL?` | 8-direction travel time analysis, 0–100 score |
+| `I want to open a bakery in Puchong` | Competitor search + market gap zones |
 
-The AI will respond with:
-- **Zone Circles** on the map — Red (high competition), Orange (moderate), Green (opportunity)
-- **Numbered Markers** for each competitor with rich info windows
-- **Results Panel** listing all places grouped by zone
-- **Strategic Insights** with market analysis and recommendations
+---
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── page.tsx                    # Main orchestrator (client component)
-│   ├── layout.tsx                  # Root layout (Geist fonts, metadata)
-│   ├── globals.css                 # Theme, glassmorphism, scrollbar, InfoWindow overrides
+│   ├── page.tsx                     # Main orchestrator — auth gating, layout, intent routing
+│   ├── layout.tsx                   # Root layout — fonts, viewport, AuthProvider wrapper
+│   ├── globals.css                  # Theme variables, glassmorphism, InfoWindow overrides
 │   └── api/
-│       ├── chat/route.ts           # POST /api/chat — Gemini AI intent classification
-│       └── market-analysis/route.ts # POST /api/market-analysis — Zone analysis
+│       ├── chat/route.ts            # POST /api/chat — Gemini intent classification
+│       └── market-analysis/route.ts # POST /api/market-analysis — AI zone analysis
 │
 ├── features/
+│   ├── auth/
+│   │   ├── context/AuthContext.tsx  # Google Sign-In, onAuthStateChanged, user state
+│   │   ├── components/LoginScreen.tsx # Full-screen glassmorphic login UI
+│   │   └── index.ts
+│   │
+│   ├── sessions/
+│   │   ├── context/SessionContext.tsx # Firestore CRUD, session list (onSnapshot), message load
+│   │   ├── types/session.ts          # FirestoreMessage, FirestoreSession, Timestamp helpers
+│   │   └── index.ts
+│   │
 │   ├── chat/
-│   │   ├── index.ts                # Exports: ChatSidebar, useChat, useMarketAnalysis
 │   │   ├── components/
-│   │   │   ├── ChatSidebar.tsx     # Left sidebar: header, search, messages, input
-│   │   │   ├── ChatMessage.tsx     # Message bubble with markdown + analysis cards
-│   │   │   ├── ChatInput.tsx       # Textarea + quick action buttons
-│   │   │   └── MarketAnalysisCard.tsx # Inline analysis card in chat messages
-│   │   └── hooks/
-│   │       ├── useChat.ts          # Chat state, POST /api/chat, returns intent+query
-│   │       └── useMarketAnalysis.ts # POST /api/market-analysis, returns zone data
+│   │   │   ├── ChatSidebar.tsx      # Left sidebar — search, messages, history, user profile
+│   │   │   ├── ChatMessage.tsx      # Message bubble with markdown + inline analysis cards
+│   │   │   ├── ChatInput.tsx        # Auto-resize textarea + quick action buttons
+│   │   │   └── MarketAnalysisCard.tsx # Zone summary card shown inside chat messages
+│   │   ├── hooks/
+│   │   │   ├── useChat.ts           # POST /api/chat, intent parsing, message state
+│   │   │   └── useMarketAnalysis.ts # POST /api/market-analysis, zone data
+│   │   └── index.ts
 │   │
 │   └── map/
-│       ├── index.ts                # Exports: Map, ResultsPanel, useMapActions
 │       ├── components/
-│       │   ├── Map.tsx             # Google Maps + Street View + zone comparison table
-│       │   ├── ResultsPanel.tsx    # Right sidebar: results grouped by zone
-│       │   └── SearchBar.tsx       # Search input with recent searches dropdown
-│       └── hooks/
-│           └── useMapActions.ts    # All map operations: search, directions, zones, accessibility
+│       │   ├── Map.tsx              # Google Map, zone circles, Street View, zone comparison table
+│       │   ├── ResultsPanel.tsx     # Right panel — results grouped by AI zone
+│       │   └── SearchBar.tsx        # Search input with recent searches dropdown
+│       ├── hooks/
+│       │   └── useMapActions.ts     # All map ops: search, directions, zones, accessibility
+│       └── index.ts
+│
+├── lib/
+│   └── firebase.ts                  # Firebase singleton (auth + db)
 │
 └── shared/
     ├── constants/
-    │   └── mapStyles.ts            # Light, Dark, Satellite map styles
+    │   └── mapStyles.ts             # Light, Dark, Satellite map styles
     ├── types/
-    │   └── chat.ts                 # All shared TypeScript interfaces
+    │   └── chat.ts                  # All TypeScript interfaces (ChatMessage, AnalysisCardData, etc.)
     └── utils/
-        ├── geminiChat.ts           # Gemini 2.5 Flash — system prompt, JSON mode
-        ├── geminiMarketAnalysis.ts # Market analysis prompt with zone coordinate generation
-        ├── googleMaps.ts           # Google Maps loader (singleton)
-        ├── geocoding.ts            # Forward/reverse geocode + location extraction
-        ├── distanceMatrix.ts       # Accessibility scoring (8-direction, 0-100)
-        ├── elevation.ts            # Elevation API (flood risk)
-        ├── airQuality.ts           # Air Quality API (AQI + business impact)
-        ├── timezone.ts             # Timezone API (local time)
-        ├── routes.ts               # Routes API v2 (advanced routing)
-        ├── zoneClusterer.ts        # Haversine-based place clustering into zones
-        ├── infoWindowRenderer.ts   # Rich HTML InfoWindow renderer
-        └── markerIcons.ts          # Category-based marker colors
+        ├── geminiChat.ts            # Gemini system prompt + JSON mode intent classification
+        ├── geminiMarketAnalysis.ts  # Market analysis prompt with zone coordinate rules
+        ├── googleMaps.ts            # Maps loader (singleton, loads all libraries)
+        ├── geocoding.ts             # Forward/reverse geocode + location name extraction
+        ├── distanceMatrix.ts        # 8-direction accessibility scoring (0–100)
+        ├── elevation.ts             # Elevation API with flood risk assessment
+        ├── airQuality.ts            # Air Quality API (AQI + health/business impact)
+        ├── timezone.ts              # Timezone API (local time per location)
+        ├── routes.ts                # Routes API v2 (advanced routing)
+        ├── zoneClusterer.ts         # Haversine-based place clustering
+        ├── infoWindowRenderer.ts    # Rich HTML InfoWindow (photos, ratings, badges)
+        └── markerIcons.ts           # Category-based marker colors
 ```
 
-## How It Works
+---
 
-1. **User Query** — Chat input (e.g., "Analyze market for gyms in Bukit Jalil")
-2. **AI Intent Classification** — Gemini 2.5 Flash classifies intent: `search`, `analyze`, `directions`, `accessibility`, or `chat`
-3. **Map Action** — Based on intent:
-   - **search/analyze** — Searches Google Places, auto-fetches all pages (up to 60 results)
-   - **analyze** — Additionally runs AI zone analysis returning Red/Orange/Green zones with lat/lng/radius
-   - **directions** — Renders routes with alternatives
-   - **accessibility** — Calculates 8-direction travel times
-4. **Zone Rendering** — AI-returned zones drawn as colored circles on the map with labels and pulsing animations for green zones
-5. **Results Panel** — Opens automatically, groups results by zone proximity using Haversine distance
-6. **AI Response** — Strategic insights and market analysis displayed in chat
+## Firestore Data Model
+
+```
+users/{uid}
+  ├── displayName, email, photoURL, lastSignIn
+  └── sessions/{sessionId}
+        ├── title, createdAt, updatedAt, messageCount, lastMessage
+        └── messages/{messageId}
+              ├── id, role ("user" | "assistant")
+              ├── content, timestamp
+              └── analysisData (zone analysis JSON or null)
+```
+
+---
 
 ## Deploy to Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/xiangzhi2003/GapMap)
 
-### Environment Variables
+### Step 1 — Add all environment variables in Vercel
 
-After deploying, add these in Vercel project Settings > Environment Variables:
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+Go to your Vercel project → Settings → Environment Variables and add all 8 variables:
+
 - `GEMINI_API_KEY`
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
 
-### Google Maps API Key Configuration
+### Step 2 — Add your Vercel domain to Firebase authorized domains
 
-Update your API key to allow your Vercel domain:
-1. Go to https://console.cloud.google.com/apis/credentials
-2. Click on your API key > HTTP referrers, add:
-   - `https://your-app.vercel.app/*`
-   - `https://*.vercel.app/*` (for preview deployments)
+Firebase Console → Authentication → Settings → Authorized domains → Add:
+- `your-app.vercel.app`
+- `chiang-xiang-zhis-projects.vercel.app` (covers all preview deployments)
+
+### Step 3 — Restrict your Google Maps API key
+
+Google Cloud Console → APIs & Credentials → your API key → HTTP referrers:
+- `https://your-app.vercel.app/*`
+- `https://*.vercel.app/*`
+- `http://localhost:3000/*`
+
+---
+
+## Known Limitations
+
+- No rate limiting — every user action calls paid Google APIs (cost risk in production)
+- AI zone coordinates are estimated by Gemini; accuracy varies for green (gap) zones
+- Places API auto-pagination has a mandatory ~2s delay per page (Google enforced)
+- Accessibility analysis depends on a `setTimeout` to wait for search results
+- Location name extraction uses regex and may miss complex or compound location names
+
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE)
 
 ## Credits
 
-Built with Claude
+Built with [Claude](https://claude.ai) · Powered by [Google Gemini](https://deepmind.google/technologies/gemini/) · Maps by [Google Maps Platform](https://developers.google.com/maps) · Auth & DB by [Firebase](https://firebase.google.com)
