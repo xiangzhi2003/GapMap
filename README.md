@@ -4,6 +4,16 @@
 
 ---
 
+## Executive Summary
+
+GapMap is an AI-powered location strategy platform that helps entrepreneurs make data-driven decisions about where to open their business. The core problem it solves is one of the leading causes of small business failure: choosing a location based on intuition rather than evidence. GapMap replaces weeks of manual research — visiting sites, counting competitors, estimating foot traffic — with a single natural-language question answered in seconds.
+
+The technical pipeline works as follows: a user's plain-English query is classified by Gemini 2.5 Flash into a structured intent, which triggers a live search of the Google Places API for all nearby competitors. Those results are then sent back to Gemini for spatial market analysis, which returns Red, Orange, and Green zones — each with real latitude, longitude, and radius values — that are rendered as interactive circles directly on a Google Map.
+
+GapMap is built on top of eight Google Maps Platform APIs (Places, Directions, Distance Matrix, Elevation, Air Quality, Routes, Geocoding, and Timezone), Gemini 2.5 Flash for both intent classification and market zone analysis, and Firebase for Google OAuth authentication and Firestore-backed session persistence. The platform makes this level of location intelligence — previously the domain of expensive consulting firms — freely accessible to any entrepreneur with a question to ask.
+
+---
+
 ## The Problem
 
 Every year, thousands of small businesses fail not because of a bad product — but because of a bad location. Entrepreneurs pick locations based on gut feeling, proximity to home, or simply because a shopfront was available. They rarely know how many competitors are nearby, whether the area is accessible, or if there is even a market gap to fill.
@@ -19,6 +29,50 @@ Researching a location the traditional way takes weeks: visiting areas in person
 GapMap is a web-based AI platform that helps entrepreneurs find the optimal location for their business. A user describes what they want to open and where they are considering — in plain, natural language — and GapMap responds with a live interactive map, competitor analysis, AI-generated zone recommendations, and strategic insights.
 
 It is not a directory or a search engine. It is a **location intelligence tool** that thinks like a business consultant.
+
+---
+
+## Alignment with UN Sustainable Development Goals
+
+**SDG 8 — Decent Work and Economic Growth**
+
+A poor location choice is one of the most common and preventable causes of small business failure. Most first-time entrepreneurs lack access to market research tools, so they rely on guesswork — and pay for it with failed ventures and lost livelihoods. GapMap directly addresses this by giving any entrepreneur — regardless of budget or background — the same quality of location analysis that large corporations commission from professional consultants. By reducing avoidable business failures, GapMap contributes to more sustainable economic participation and job creation at the grassroots level.
+
+---
+
+**SDG 9 — Industry, Innovation and Infrastructure**
+
+GapMap represents a novel application of AI to geospatial reasoning: rather than simply summarising text, Gemini generates precise geographic coordinates (latitude, longitude, radius) that drive real map geometry. This transforms a language model into a spatial planning tool — an infrastructure layer for location intelligence that did not previously exist at this accessibility level. The natural-language interface also removes the data literacy barrier that typically gates access to GIS tools, making geospatial analysis available to people who have never worked with maps programmatically.
+
+---
+
+**SDG 10 — Reduced Inequalities**
+
+Historically, detailed market gap analysis required hiring location consultants, purchasing commercial GIS data, or employing analysts with specialised skills — all of which are out of reach for small operators. Large franchise groups and retail chains make location decisions backed by expensive research; independent entrepreneurs do not. GapMap closes this gap by giving a street food vendor or a first-time cafe owner the same analytical capability as a multinational expansion team. Equal access to business intelligence is a form of economic equity.
+
+---
+
+**SDG 11 — Sustainable Cities and Communities**
+
+Urban commercial clustering is wasteful: when businesses of the same type concentrate in the same area, they create congestion in some zones and leave others commercially underserved. GapMap's Green Zone detection actively guides entrepreneurs toward areas with genuine demand and low competition — not just the obvious high-footfall streets everyone defaults to. Over time, this kind of data-driven distribution of new businesses can contribute to more balanced, liveable urban development and reduce the hollowing out of underserved neighbourhoods.
+
+---
+
+## AI Innovation — How GapMap Uses Gemini
+
+### Intent Classification as an Orchestration Layer
+
+Rather than building separate UI flows for search, directions, analysis, and accessibility queries, GapMap uses Gemini 2.5 Flash as an orchestration layer. Every user message is sent to `/api/chat` along with the full conversation history and the current map viewport (center coordinates and zoom level). Gemini returns structured JSON — enforced via `responseMimeType: 'application/json'` — that identifies the intent, extracts the search query, and isolates the business category and location name.
+
+This approach means the interface has no forms, no dropdowns, and no mode switching. The user types naturally; the AI decides what to do. Feeding the full conversation history into every call enables genuine follow-up question support: "What about further south?" works because Gemini knows what the previous question was about. Injecting map context (coordinates + zoom) grounds the AI's spatial reasoning in what the user is currently looking at. `thinkingBudget: 0` is set on this call to keep latency low for what is effectively a routing decision.
+
+### Market Zone Analysis with Coordinate Generation
+
+The more novel AI application is in `/api/market-analysis`. After GapMap collects up to 60 competitor locations from the Google Places API, the top 20 by rating are sent to Gemini with a carefully engineered prompt that instructs it to perform spatial reasoning over geographic data.
+
+The key innovation is that Gemini does not return text commentary — it returns machine-readable zone objects, each with a `lat`, `lng`, and `radius` in metres. These values drive real Google Maps geometry: circles are drawn, pulsing animations are triggered, and results are grouped by zone using Haversine distance calculations. For Red and Orange zones (areas of high competition), Gemini is instructed to calculate the geographic centroid of the actual competitor cluster — averaging their coordinates to find the true centre of that density. For Green zones (market opportunity areas), Gemini identifies geographic gaps in the distribution and estimates coordinates that represent underserved areas, reasoning about where demand likely exists without supply.
+
+Each zone also includes a target audience analysis (income level, age range, primary lifestyle traits) and a zone-specific strategic recommendation. For certain business types, Gemini proactively includes environmental commentary — noting flood risk for low-elevation sites, or air quality concerns for businesses relying on outdoor footfall.
 
 ---
 
@@ -118,6 +172,40 @@ Every message and every analysis is saved to the user's account in real time. Th
 - Chat sessions stored in Cloud Firestore, organised per user
 - Session history panel in the sidebar with session titles, timestamps, and message count
 - Load any past session to resume an analysis; delete sessions that are no longer needed
+
+---
+
+## Challenges Faced During Development
+
+### 1. Making AI Output Drive Map Geometry
+
+The hardest design challenge was getting Gemini to produce geographic coordinates accurate enough to render meaningful map circles — not just plausible-sounding ones. Early versions of the system prompt produced zones that were offset from the actual competitor clusters, or that assigned wildly inconsistent radii.
+
+The fix was to encode explicit coordinate calculation rules directly in the market analysis system prompt: Red and Orange zone coordinates must be derived by averaging the `lat` and `lng` values of the competitors assigned to that cluster; radius must reflect the actual spread of those competitors rather than a fixed default. Green zone coordinates require different reasoning — Gemini is instructed to identify the midpoint of the largest geographic gap in competitor distribution, rather than picking an arbitrary empty area. Iterating on these instructions until the zones landed correctly on real maps took significant prompt engineering effort.
+
+### 2. Intent Disambiguation Between Search and Analyze
+
+Early versions of the intent classifier over-triggered `analyze` for queries that were really just searches. "Find bubble tea shops in Bangsar" should map to `search` (show me what exists), not `analyze` (do a full market gap analysis). The over-classification caused unnecessary Gemini API calls and confused users who just wanted to browse.
+
+The solution was to include explicit trigger-word lists in the system prompt — keywords like "analyze", "market gap", "best location", and "where should I open" map to `analyze`, while "find", "show me", and "nearby" default to `search`. Ambiguous queries default to `search` rather than `analyze`, which is the lower-cost and more recoverable mistake.
+
+### 3. Places API Pagination Race Condition
+
+Google's Places API enforces a mandatory ~2-second delay between paginated result pages. The initial implementation dispatched results to the market analysis pipeline as soon as the first page arrived — meaning Gemini was analysing 20 results when 60 were eventually available, producing incomplete zone coverage.
+
+The fix was to ensure pagination fully completes before the analysis pipeline is triggered. The `searchPlaces()` function now awaits all pages sequentially (up to three pages with enforced 2-second gaps) and only then dispatches the full result set to `/api/market-analysis`. This adds up to 6 seconds of search time for dense areas, but ensures the analysis is based on a complete competitor picture.
+
+### 4. Google Maps InfoWindow Dark Theme
+
+Google Maps InfoWindows render inside a Shadow DOM-like structure that is isolated from the page's global stylesheet. Standard Tailwind classes and CSS selectors do not reach inside them, meaning the default white InfoWindow appeared jarringly out of place against GapMap's dark cyberpunk theme.
+
+The fix required targeting specific internal Google Maps CSS classes — `.gm-style-iw`, `.gm-style-iw-d`, `.gm-style-iw-t`, and the close button `.gm-ui-hover-effect` — with `!important` overrides in `globals.css`. These class names are undocumented and subject to change in Google Maps updates, but they are the only available injection point for InfoWindow theming without building a fully custom overlay from scratch.
+
+### 5. Parallel Environmental API Coordination
+
+Clicking a competitor marker triggers three simultaneous API calls — Elevation, Air Quality, and Timezone — in addition to the Places Details fetch. Early implementations used sequential `await` chaining, which meant a single slow or failing API would block the entire InfoWindow from rendering.
+
+The fix was to switch to `Promise.allSettled()` for all three environmental calls. This means the InfoWindow renders with whatever data is available: if Air Quality returns an error (which happens in areas with no monitoring stations), the elevation and timezone data still appear. Partial data is shown with graceful fallback labels rather than an error state. This pattern is now applied consistently in `infoWindowRenderer.ts`.
 
 ---
 
